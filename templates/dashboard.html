@@ -27,59 +27,163 @@
           {% endif %}
         {% endwith %}
 
-        <section class="upload-section">
-            <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
-                <div class="upload-zone" id="drop-zone">
-                    <span class="upload-icon">☁️</span>
-                    <p>Click or drag files to upload</p>
-                    <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">Multiple files supported • Unlimited size</p>
-                    <input type="file" name="file" id="file-input" multiple onchange="this.form.submit()">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
+            <button class="tab-btn" onclick="switchTab('files')">Files</button>
+        </div>
+
+        <section id="upload-tab" class="tab-content active">
+            <div class="upload-zone" id="drop-zone">
+                <span class="upload-icon">☁️</span>
+                <p>Click or drag files to upload</p>
+                <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">Multiple files supported • Unlimited size</p>
+                <input type="file" id="file-input" multiple>
+            </div>
+
+            <div id="staging-area" class="staging-area" style="display: none;">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Ready to upload:</h3>
+                <ul id="staging-list" class="staging-list"></ul>
+                <div class="staging-actions">
+                    <button class="btn-clear" onclick="clearStaging()">Clear All</button>
+                    <button class="btn-confirm" onclick="uploadFiles()">Confirm Upload</button>
                 </div>
+            </div>
+            
+            <!-- Secret form for submission -->
+            <form id="upload-form" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" style="display: none;">
+                <input type="file" name="file" id="actual-input" multiple>
             </form>
         </section>
 
-        <section class="file-section">
-            <h2>📦 Shared Files</h2>
-            {% if files %}
-            <ul class="file-list">
-                {% for file in files %}
-                <li class="file-item">
-                    <div class="file-info">
-                        <span style="font-size: 1.5rem;">📄</span>
-                        <span class="file-name" title="{{ file }}">{{ file }}</span>
-                    </div>
-                    <a href="{{ url_for('download_file', filename=file) }}" class="download-link">Download</a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <div class="empty-state">
-                <p>No files shared yet. Be the first to upload!</p>
+        <section id="files-tab" class="tab-content">
+            <div class="file-section">
+                <h2>📦 Shared Files</h2>
+                {% if files %}
+                <ul class="file-list">
+                    {% for file in files %}
+                    <li class="file-item">
+                        <div class="file-info">
+                            <span style="font-size: 1.5rem;">📄</span>
+                            <div>
+                                <div class="file-name" title="{{ file.name }}">{{ file.name }}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Size: {{ file.size }}</div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('download_file', filename=file.name) }}" class="download-link">Download</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state">
+                    <p>No files shared yet. Be the first to upload!</p>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </section>
     </div>
 
     <script>
-        // Simple drag and drop visual feedback
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            if (tab === 'upload') {
+                document.querySelector('button[onclick="switchTab(\'upload\')"]').classList.add('active');
+                document.getElementById('upload-tab').classList.add('active');
+            } else {
+                document.querySelector('button[onclick="switchTab(\'files\')"]').classList.add('active');
+                document.getElementById('files-tab').classList.add('active');
+            }
+        }
+
+        // Staging Logic
         const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const stagingArea = document.getElementById('staging-area');
+        const stagingList = document.getElementById('staging-list');
+        const actualInput = document.getElementById('actual-input');
         
+        let stagedFiles = [];
+
+        function addFilesToStaging(files) {
+            Array.from(files).forEach(file => {
+                // Prevent duplicates in current staging
+                if (!stagedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                    stagedFiles.push(file);
+                }
+            });
+            renderStaging();
+        }
+
+        function renderStaging() {
+            stagingList.innerHTML = '';
+            if (stagedFiles.length > 0) {
+                stagingArea.style.display = 'block';
+                stagedFiles.forEach((file, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'staging-item';
+                    li.innerHTML = `
+                        <div class="file-info">
+                            <strong>${file.name}</strong>
+                            <span style="color: var(--text-secondary); margin-left: 0.5rem;">(${(file.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <button class="remove-btn" onclick="removeFile(${index})">✕</button>
+                    `;
+                    stagingList.appendChild(li);
+                });
+            } else {
+                stagingArea.style.display = 'none';
+            }
+        }
+
+        function removeFile(index) {
+            stagedFiles.splice(index, 1);
+            renderStaging();
+        }
+
+        function clearStaging() {
+            stagedFiles = [];
+            renderStaging();
+        }
+
+        function uploadFiles() {
+            if (stagedFiles.length === 0) return;
+            
+            const dataTransfer = new DataTransfer();
+            stagedFiles.forEach(file => dataTransfer.items.add(file));
+            actualInput.files = dataTransfer.files;
+            
+            document.getElementById('upload-form').submit();
+        }
+
+        // Event Listeners for Input
+        fileInput.addEventListener('change', (e) => {
+            addFilesToStaging(e.target.files);
+            fileInput.value = ''; // Reset input to allow re-selecting same file
+        });
+
+        // Robust Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => e.preventDefault());
+        });
+
         ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
+            dropZone.addEventListener(eventName, () => {
                 dropZone.classList.add('active');
-                dropZone.style.borderColor = 'var(--accent-color)';
-                dropZone.style.background = 'rgba(56, 189, 248, 0.1)';
             });
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
+            dropZone.addEventListener(eventName, () => {
                 dropZone.classList.remove('active');
-                dropZone.style.borderColor = 'var(--glass-border)';
-                dropZone.style.background = 'rgba(15, 23, 42, 0.3)';
             });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            addFilesToStaging(files);
         });
     </script>
 </body>

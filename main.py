@@ -21,15 +21,33 @@ app.config.from_object(Config)
 def dashboard():
     """Main dashboard: lists files and shows upload form."""
     try:
-        files = [f.name for f in Config.STORAGE_DIR.iterdir() if f.is_file()]
-        # Sort files by modification time (newest first)
-        files.sort(key=lambda x: (Config.STORAGE_DIR / x).stat().st_mtime, reverse=True)
+        files_data = []
+        for f in Config.STORAGE_DIR.iterdir():
+            if f.is_file():
+                stat = f.stat()
+                size_bytes = stat.st_size
+                # Convert to human readable string
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    size_str = f"{size_bytes / 1024:.1f} KB"
+                else:
+                    size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+                
+                files_data.append({
+                    'name': f.name,
+                    'size': size_str,
+                    'mtime': stat.st_mtime
+                })
+        
+        # Sort by modification time (newest first)
+        files_data.sort(key=lambda x: x['mtime'], reverse=True)
     except Exception as e:
         app.logger.error(f"Error listing files: {e}")
-        files = []
+        files_data = []
         flash("Could not retrieve file list.", "error")
     
-    return render_template('dashboard.html', files=files)
+    return render_template('dashboard.html', files=files_data)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
