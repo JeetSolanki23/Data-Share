@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Share - Secure File Exchange</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Data Share</h1>
+            <p class="subtitle">Secure, fast, and unified file exchange</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class="flashes">
+            {% for category, message in messages %}
+              <li class="flash {{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <section class="upload-section">
+            <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                <div class="upload-zone" id="drop-zone">
+                    <span class="upload-icon">☁️</span>
+                    <p>Click or drag files to upload</p>
+                    <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">Multiple files supported • Unlimited size</p>
+                    <input type="file" name="file" id="file-input" multiple onchange="this.form.submit()">
+                </div>
+            </form>
+        </section>
+
+        <section class="file-section">
+            <h2>📦 Shared Files</h2>
+            {% if files %}
+            <ul class="file-list">
+                {% for file in files %}
+                <li class="file-item">
+                    <div class="file-info">
+                        <span style="font-size: 1.5rem;">📄</span>
+                        <span class="file-name" title="{{ file }}">{{ file }}</span>
+                    </div>
+                    <a href="{{ url_for('download_file', filename=file) }}" class="download-link">Download</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <p>No files shared yet. Be the first to upload!</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <script>
+        // Simple drag and drop visual feedback
+        const dropZone = document.getElementById('drop-zone');
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('active');
+                dropZone.style.borderColor = 'var(--accent-color)';
+                dropZone.style.background = 'rgba(56, 189, 248, 0.1)';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('active');
+                dropZone.style.borderColor = 'var(--glass-border)';
+                dropZone.style.background = 'rgba(15, 23, 42, 0.3)';
+            });
+        });
+    </script>
+</body>
+</html>
