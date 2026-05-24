@@ -36,7 +36,19 @@
             <div class="upload-zone" id="drop-zone">
                 <span class="upload-icon">☁️</span>
                 <p>Click or drag files to upload</p>
-                <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">Multiple files supported • Unlimited size</p>
+                
+                <div class="storage-stats">
+                    <div class="storage-text">
+                        <span>Storage: <strong>{{ storage.used }}</strong> of {{ storage.total }}</span>
+                        <span>Max batch: <strong>{{ max_files }}</strong></span>
+                    </div>
+                    {% if not storage.is_unlimited %}
+                    <div class="usage-bar-container">
+                        <div class="usage-bar" style="width: {{ storage.percent }}%;"></div>
+                    </div>
+                    {% endif %}
+                </div>
+                
                 <input type="file" id="file-input" multiple>
             </div>
 
@@ -123,13 +135,28 @@
                 stagedFiles.forEach((file, index) => {
                     const li = document.createElement('li');
                     li.className = 'staging-item';
-                    li.innerHTML = `
-                        <div class="file-info">
-                            <strong>${file.name}</strong>
-                            <span style="color: var(--text-secondary); margin-left: 0.5rem;">(${(file.size / 1024).toFixed(1)} KB)</span>
-                        </div>
-                        <button class="remove-btn" onclick="removeFile(${index})">✕</button>
-                    `;
+                    
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'file-info';
+                    
+                    const nameStrong = document.createElement('strong');
+                    nameStrong.textContent = file.name;
+                    
+                    const sizeSpan = document.createElement('span');
+                    sizeSpan.style.color = 'var(--text-secondary)';
+                    sizeSpan.style.marginLeft = '0.5rem';
+                    sizeSpan.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+                    
+                    infoDiv.appendChild(nameStrong);
+                    infoDiv.appendChild(sizeSpan);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.textContent = '✕';
+                    removeBtn.onclick = () => removeFile(index);
+                    
+                    li.appendChild(infoDiv);
+                    li.appendChild(removeBtn);
                     stagingList.appendChild(li);
                 });
             } else {

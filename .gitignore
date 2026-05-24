@@ -17,3 +17,8 @@ build/
 storage/
 uploads/
 shared_folder/
+
+# Testing
+.pytest_cache/
+test_*.txt
+run_tests.py
