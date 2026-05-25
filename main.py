@@ -44,7 +44,8 @@ else:
 class Config:
     """Application configuration."""
     BASE_DIR = Path(__file__).parent.resolve()
-    STORAGE_DIR = BASE_DIR / "storage"
+    # Use the serverless writable tmp directory explicitly
+    STORAGE_DIR = Path("/tmp/storage")
     DB_PATH = STORAGE_DIR / "metadata.db"
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-for-data-share-app")
     
@@ -62,7 +63,9 @@ class Config:
     rate_limit = os.environ.get("UPLOADS_PER_MINUTE", "5")
     UPLOADS_PER_MIN = int(rate_limit) if int(rate_limit) > 0 else None
 
-# Ensure storage directory exists
+# Debug: print storage location so deployment logs show where we're writing
+print("STORAGE_DIR =", Config.STORAGE_DIR)
+# Ensure storage directory exists (temp dir on serverless platforms is writable)
 Config.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
