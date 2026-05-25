@@ -2,6 +2,7 @@ import os
 import hashlib
 import sqlite3
 import secrets
+import contextlib
 from pathlib import Path
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -41,12 +42,24 @@ if os.environ.get("CLOUDINARY_URL"):
 else:
     print("⚠ CLOUDINARY_URL not found - will use local storage only")
 
+# Database backend selection: Postgres when DATABASE_URL is configured, SQLite otherwise.
+DB_URL = os.environ.get("DATABASE_URL")
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+
+use_postgres = bool(DB_URL) and psycopg2 is not None
+if DB_URL and not use_postgres:
+    print("⚠ DATABASE_URL is configured but psycopg2 is not installed. Falling back to SQLite for local indexing.")
+
 class Config:
     """Application configuration."""
     BASE_DIR = Path(__file__).parent.resolve()
     # Use the serverless writable tmp directory explicitly
     STORAGE_DIR = Path("/tmp/storage")
     DB_PATH = STORAGE_DIR / "metadata.db"
+    DATABASE_URL = DB_URL
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-for-data-share-app")
     
     # Quotas and Limits
@@ -65,8 +78,24 @@ class Config:
 
 # Debug: print storage location so deployment logs show where we're writing
 print("STORAGE_DIR =", Config.STORAGE_DIR)
+print("DATABASE_BACKEND =", "PostgreSQL" if use_postgres else "SQLite")
 # Ensure storage directory exists (temp dir on serverless platforms is writable)
 Config.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+@contextlib.contextmanager
+def db_cursor(commit=False):
+    conn = psycopg2.connect(DB_URL) if use_postgres else sqlite3.connect(Config.DB_PATH)
+    cursor = conn.cursor()
+    try:
+        yield cursor
+        if commit:
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def param_placeholder():
+    return "%s" if use_postgres else "?"
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -83,103 +112,128 @@ limiter = Limiter(
 # Database Helper Functions
 def init_db():
     """Initializes the metadata database."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS file_hashes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT UNIQUE,
-            sha256 TEXT,
-            size_bytes INTEGER
-        )
-    ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_sha256 ON file_hashes (sha256)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
-    ensure_file_metadata_columns(cursor)
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
-    conn.commit()
-    conn.close()
+    with db_cursor(commit=True) as cursor:
+        if use_postgres:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS file_hashes (
+                    id SERIAL PRIMARY KEY,
+                    filename TEXT UNIQUE,
+                    sha256 TEXT,
+                    size_bytes BIGINT
+                )
+            ''')
+        else:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS file_hashes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename TEXT UNIQUE,
+                    sha256 TEXT,
+                    size_bytes INTEGER
+                )
+            ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_sha256 ON file_hashes (sha256)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
+        ensure_file_metadata_columns(cursor)
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
+
 
 def update_hash_cache(filename, file_hash, size_bytes):
     """Adds or updates a file hash and size in the cache."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('INSERT OR REPLACE INTO file_hashes (filename, sha256, size_bytes) VALUES (?, ?, ?)', 
-                  (filename, file_hash, size_bytes))
-    conn.commit()
-    conn.close()
+    placeholder = param_placeholder()
+    if use_postgres:
+        query = (
+            f'INSERT INTO file_hashes (filename, sha256, size_bytes) VALUES ({placeholder}, {placeholder}, {placeholder}) '
+            'ON CONFLICT (filename) DO UPDATE SET sha256 = EXCLUDED.sha256, size_bytes = EXCLUDED.size_bytes'
+        )
+    else:
+        query = (
+            f'INSERT OR REPLACE INTO file_hashes (filename, sha256, size_bytes) VALUES ({placeholder}, {placeholder}, {placeholder})'
+        )
+    with db_cursor(commit=True) as cursor:
+        cursor.execute(query, (filename, file_hash, size_bytes))
+
 
 def get_hash_from_cache(filename):
     """Retrieves a hash from the cache for a specific file."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT sha256 FROM file_hashes WHERE filename = ?', (filename,))
-    row = cursor.fetchone()
-    conn.close()
+    placeholder = param_placeholder()
+    query = f'SELECT sha256 FROM file_hashes WHERE filename = {placeholder}'
+    with db_cursor() as cursor:
+        cursor.execute(query, (filename,))
+        row = cursor.fetchone()
     return row[0] if row else None
+
 
 def find_duplicate_by_hash(new_hash):
     """Checks the database for any file with the matching hash."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT filename FROM file_hashes WHERE sha256 = ?', (new_hash,))
-    row = cursor.fetchone()
-    conn.close()
+    placeholder = param_placeholder()
+    query = f'SELECT filename FROM file_hashes WHERE sha256 = {placeholder}'
+    with db_cursor() as cursor:
+        cursor.execute(query, (new_hash,))
+        row = cursor.fetchone()
     if row and (Config.STORAGE_DIR / row[0]).exists():
         return row[0]
     return None
 
+
 def check_for_size_match(size_bytes):
     """Checks if any file in the database matches the given size."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT 1 FROM file_hashes WHERE size_bytes = ? LIMIT 1', (size_bytes,))
-    match = cursor.fetchone() is not None
-    conn.close()
+    placeholder = param_placeholder()
+    query = f'SELECT 1 FROM file_hashes WHERE size_bytes = {placeholder} LIMIT 1'
+    with db_cursor() as cursor:
+        cursor.execute(query, (size_bytes,))
+        match = cursor.fetchone() is not None
     return match
+
 
 def sync_cache():
     """Builds/repairs cache by scanning disk for files not in DB."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    
-    # Check if we need to migrate (add size_bytes column if it doesn't exist)
-    cursor.execute("PRAGMA table_info(file_hashes)")
-    columns = [row[1] for row in cursor.fetchall()]
-    if 'size_bytes' not in columns:
-        cursor.execute('ALTER TABLE file_hashes ADD COLUMN size_bytes INTEGER')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
-    ensure_file_metadata_columns(cursor)
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
-    
-    # 1. Add missing files
-    for f in Config.STORAGE_DIR.iterdir():
-        if f.is_file() and f.name != 'metadata.db':
-            stat = f.stat()
-            cursor.execute('SELECT 1 FROM file_hashes WHERE filename = ?', (f.name,))
-            if not cursor.fetchone():
-                with open(f, "rb") as file_to_hash:
-                    file_hash = get_file_hash(file_to_hash)
-                    cursor.execute('INSERT INTO file_hashes (filename, sha256, size_bytes) VALUES (?, ?, ?)', 
-                                 (f.name, file_hash, stat.st_size))
-            else:
-                # Update size if missing (for migrations)
-                cursor.execute('UPDATE file_hashes SET size_bytes = ? WHERE filename = ? AND size_bytes IS NULL',
-                             (stat.st_size, f.name))
-    
-    # 2. Remove deleted files from DB
-    cursor.execute('SELECT filename FROM file_hashes')
-    db_files = cursor.fetchall()
-    for row in db_files:
-        if not (Config.STORAGE_DIR / row[0]).exists():
-            cursor.execute('DELETE FROM file_hashes WHERE filename = ?', (row[0],))
+    with db_cursor(commit=True) as cursor:
+        if use_postgres:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = %s AND table_schema = 'public'",
+                ('file_hashes',)
+            )
+            columns = {row[0] for row in cursor.fetchall()}
+        else:
+            cursor.execute("PRAGMA table_info(file_hashes)")
+            columns = {row[1] for row in cursor.fetchall()}
 
-    cursor.execute('SELECT filename FROM file_hashes WHERE share_token IS NULL OR share_token = ""')
-    for (filename,) in cursor.fetchall():
-        cursor.execute('UPDATE file_hashes SET share_token = ? WHERE filename = ?', (generate_share_token(cursor), filename))
-            
-    conn.commit()
-    conn.close()
+        if 'size_bytes' not in columns:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN size_bytes INTEGER')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
+        ensure_file_metadata_columns(cursor)
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
+
+        placeholder = param_placeholder()
+        select_by_name = f'SELECT 1 FROM file_hashes WHERE filename = {placeholder}'
+        insert_query = f'INSERT INTO file_hashes (filename, sha256, size_bytes) VALUES ({placeholder}, {placeholder}, {placeholder})'
+        update_size_query = f'UPDATE file_hashes SET size_bytes = {placeholder} WHERE filename = {placeholder} AND size_bytes IS NULL'
+        update_share_query = f'UPDATE file_hashes SET share_token = {placeholder} WHERE filename = {placeholder}'
+
+        # 1. Add missing files
+        for f in Config.STORAGE_DIR.iterdir():
+            if f.is_file() and f.name != 'metadata.db':
+                stat = f.stat()
+                cursor.execute(select_by_name, (f.name,))
+                if not cursor.fetchone():
+                    with open(f, "rb") as file_to_hash:
+                        file_hash = get_file_hash(file_to_hash)
+                        cursor.execute(insert_query, (f.name, file_hash, stat.st_size))
+                else:
+                    cursor.execute(update_size_query, (stat.st_size, f.name))
+
+        # 2. Remove deleted files from DB
+        cursor.execute('SELECT filename FROM file_hashes')
+        db_files = cursor.fetchall()
+        for row in db_files:
+            if not (Config.STORAGE_DIR / row[0]).exists():
+                cursor.execute('DELETE FROM file_hashes WHERE filename = %s' if use_postgres else 'DELETE FROM file_hashes WHERE filename = ?', (row[0],))
+
+        cursor.execute('SELECT filename FROM file_hashes WHERE share_token IS NULL OR share_token = ""')
+        for (filename,) in cursor.fetchall():
+            cursor.execute(update_share_query, (generate_share_token(cursor), filename))
+
 
 def get_file_hash(file_stream):
     """Calculates SHA-256 hash of a file stream."""
@@ -208,44 +262,64 @@ def get_total_storage_usage():
 
 def ensure_file_metadata_columns(cursor):
     """Adds Cloudinary metadata columns when missing."""
-    cursor.execute("PRAGMA table_info(file_hashes)")
-    columns = {row[1] for row in cursor.fetchall()}
+    if use_postgres:
+        cursor.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = %s AND table_schema = 'public'",
+            ('file_hashes',)
+        )
+        columns = {row[0] for row in cursor.fetchall()}
+    else:
+        cursor.execute("PRAGMA table_info(file_hashes)")
+        columns = {row[1] for row in cursor.fetchall()}
+
     if 'share_token' not in columns:
-        cursor.execute('ALTER TABLE file_hashes ADD COLUMN share_token TEXT')
+        if use_postgres:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN IF NOT EXISTS share_token TEXT')
+        else:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN share_token TEXT')
     if 'cloudinary_public_id' not in columns:
-        cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_public_id TEXT')
+        if use_postgres:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT')
+        else:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_public_id TEXT')
     if 'cloudinary_url' not in columns:
-        cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_url TEXT')
+        if use_postgres:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN IF NOT EXISTS cloudinary_url TEXT')
+        else:
+            cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_url TEXT')
 
 
 def generate_share_token(cursor):
     """Generates a short opaque token that avoids revealing filenames."""
+    placeholder = param_placeholder()
     while True:
         token = secrets.token_urlsafe(9).rstrip('=')
-        cursor.execute('SELECT 1 FROM file_hashes WHERE share_token = ? LIMIT 1', (token,))
+        query = f'SELECT 1 FROM file_hashes WHERE share_token = {placeholder} LIMIT 1'
+        cursor.execute(query, (token,))
         if not cursor.fetchone():
             return token
 
 
 def ensure_share_token(filename):
     """Ensures a file has a persistent opaque share token."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT share_token FROM file_hashes WHERE filename = ?', (filename,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        return None
+    placeholder = param_placeholder()
+    select_query = f'SELECT share_token FROM file_hashes WHERE filename = {placeholder}'
+    update_query = f'UPDATE file_hashes SET share_token = {placeholder} WHERE filename = {placeholder}'
 
-    if row[0]:
-        conn.close()
-        return row[0]
+    with db_cursor(commit=True) as cursor:
+        cursor.execute(select_query, (filename,))
+        row = cursor.fetchone()
+        if not row:
+            return None
 
-    token = generate_share_token(cursor)
-    cursor.execute('UPDATE file_hashes SET share_token = ? WHERE filename = ?', (token, filename))
-    conn.commit()
-    conn.close()
-    return token
+        if row[0]:
+            return row[0]
+
+        token = generate_share_token(cursor)
+        cursor.execute(update_query, (token, filename))
+        return token
+
 
 def upload_file_to_cloudinary(file_or_path, filename):
     """
@@ -299,25 +373,22 @@ def verify_cloudinary_connection():
 
 def update_cloudinary_cache(filename, public_id, cloudinary_url):
     """Stores hosted Cloudinary details for a file."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        'UPDATE file_hashes SET cloudinary_public_id = ?, cloudinary_url = ? WHERE filename = ?',
-        (public_id, cloudinary_url, filename)
-    )
-    conn.commit()
-    conn.close()
+    placeholder = param_placeholder()
+    query = f'UPDATE file_hashes SET cloudinary_public_id = {placeholder}, cloudinary_url = {placeholder} WHERE filename = {placeholder}'
+    with db_cursor(commit=True) as cursor:
+        cursor.execute(query, (public_id, cloudinary_url, filename))
+
 
 def get_file_record(filename):
     """Fetches metadata for a stored file."""
-    conn = sqlite3.connect(Config.DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        'SELECT filename, sha256, size_bytes, share_token, cloudinary_public_id, cloudinary_url FROM file_hashes WHERE filename = ? OR share_token = ? LIMIT 1',
-        (filename, filename)
+    placeholder = param_placeholder()
+    query = (
+        f'SELECT filename, sha256, size_bytes, share_token, cloudinary_public_id, cloudinary_url '
+        f'FROM file_hashes WHERE filename = {placeholder} OR share_token = {placeholder} LIMIT 1'
     )
-    row = cursor.fetchone()
-    conn.close()
+    with db_cursor() as cursor:
+        cursor.execute(query, (filename, filename))
+        row = cursor.fetchone()
     if not row:
         return None
 
@@ -389,14 +460,13 @@ def dashboard():
             storage_info['is_full'] = False
 
         files_data = []
-        conn = sqlite3.connect(Config.DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('SELECT filename, size_bytes, cloudinary_url, share_token FROM file_hashes ORDER BY rowid DESC')
-        for filename, size_bytes, cloudinary_url, share_token in cursor.fetchall():
-            if size_bytes < 1024:
-                size_str = f"{size_bytes} B"
-            elif size_bytes < 1024 * 1024:
-                size_str = f"{size_bytes / 1024:.1f} KB"
+        with db_cursor() as cursor:
+            cursor.execute('SELECT filename, size_bytes, cloudinary_url, share_token FROM file_hashes ORDER BY id DESC')
+            for filename, size_bytes, cloudinary_url, share_token in cursor.fetchall():
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    size_str = f"{size_bytes / 1024:.1f} KB"
             else:
                 size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
             
