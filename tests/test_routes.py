@@ -1,6 +1,7 @@
 import io
 import pytest
 from main import Config, update_hash_cache, get_total_storage_usage
+import re
 
 def test_dashboard_route(client):
     """Verifies dashboard loads correctly."""
@@ -50,3 +51,19 @@ def test_batch_limit_enforcement(client, test_app):
     }
     response = client.post('/upload', data=data, follow_redirects=True)
     assert b"Too many files" in response.data
+
+def test_dashboard_copy_link_uses_opaque_token(client, test_app):
+    """Verifies dashboard copy links do not expose the filename in the share URL."""
+    filename = "visible-name.txt"
+    data = {'file': (io.BytesIO(b"token content"), filename)}
+    client.post('/upload', data=data, follow_redirects=True)
+
+    response = client.get('/')
+    assert response.status_code == 200
+
+    html = response.data.decode('utf-8')
+    match = re.search(r'data-copy-url="([^"]+)"', html)
+    assert match is not None
+    copy_url = match.group(1)
+    assert '/r/' in copy_url
+    assert filename not in copy_url

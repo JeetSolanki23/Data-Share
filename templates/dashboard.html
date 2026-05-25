@@ -3,215 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Share - Secure File Exchange</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- Inter Font -->
+    <title>FileFlow — Secure File Exchange</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fileflow.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Data Share</h1>
-            <p class="subtitle">Secure, fast, and unified file exchange</p>
-        </header>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <ul class="flashes">
-            {% for category, message in messages %}
-              <li class="flash {{ category }}">{{ message }}</li>
-            {% endfor %}
-            </ul>
-          {% endif %}
-        {% endwith %}
+<nav class="topnav">
+    <div class="nav-inner">
+        <a href="#app" class="nav-logo">
+            <div class="logo-mark">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
+                    <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <span class="logo-copy">
+                <span class="logo-text">FileFlow</span>
+                <span class="logo-subtext">Data Share</span>
+            </span>
+        </a>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
-            <button class="tab-btn" onclick="switchTab('files')">Files</button>
+        <div class="nav-links">
+            <a href="#app" class="nav-link">Upload</a>
+            <a href="#features" class="nav-link">Features</a>
         </div>
 
-        <section id="upload-tab" class="tab-content active">
-            <div class="upload-zone" id="drop-zone">
-                <span class="upload-icon">☁️</span>
-                <p>Click or drag files to upload</p>
-                
-                <div class="storage-stats">
-                    <div class="storage-text">
-                        <span>Storage: <strong>{{ storage.used }}</strong> of {{ storage.total }}</span>
-                        <span>Max batch: <strong>{{ max_files }}</strong></span>
-                    </div>
+        <div class="nav-actions">
+            <a href="#app" class="btn-nav-cta">Upload a file</a>
+        </div>
+
+        <button class="nav-hamburger" id="navToggle" aria-label="Menu">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</nav>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-wrap">
+      <ul class="flashes">
+      {% for category, message in messages %}
+        <li class="flash {{ category }}">{{ message }}</li>
+      {% endfor %}
+      </ul>
+  </div>
+  {% endif %}
+{% endwith %}
+
+<!-- HERO / APP SECTION — combined so the app IS the hero -->
+<section id="app" class="app-section">
+    <div class="section-inner">
+
+        <div class="hero-headline">
+            <h1 class="hero-title">Share files,<br><em>not links.</em></h1>
+            <p class="hero-sub">Drop anything here and get a clean, token-based share link instantly. No accounts required for recipients.</p>
+        </div>
+
+        <div class="app-shell">
+            <div class="app-storage-row">
+                <div class="storage-info">
+                    <span class="storage-label">Storage</span>
+                    <span class="storage-used">{{ storage.used }} of {{ storage.total }}</span>
+                </div>
+                <div class="storage-meter">
                     {% if not storage.is_unlimited %}
-                    <div class="usage-bar-container">
-                        <div class="usage-bar" style="width: {{ storage.percent }}%;"></div>
+                    <div class="storage-bar-wrap" aria-label="Storage usage progress">
+                        <div class="storage-bar-fill" style="width: {{ storage.percent }}%;"></div>
                     </div>
+                    <span class="storage-pct">{{ storage.percent | round(1) }}%</span>
+                    {% else %}
+                    <div class="storage-bar-wrap storage-bar-wrap-unlimited" aria-label="Storage usage progress">
+                        <div class="storage-bar-fill" style="width: 100%;"></div>
+                    </div>
+                    <span class="storage-pct">Unlimited</span>
                     {% endif %}
                 </div>
-                
-                <input type="file" id="file-input" multiple>
             </div>
 
-            <div id="staging-area" class="staging-area" style="display: none;">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Ready to upload:</h3>
-                <ul id="staging-list" class="staging-list"></ul>
-                <div class="staging-actions">
-                    <button class="btn-clear" onclick="clearStaging()">Clear All</button>
-                    <button class="btn-confirm" onclick="uploadFiles()">Confirm Upload</button>
-                </div>
+            <div class="app-tabs">
+                <button class="app-tab active" data-tab="upload">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                    Upload
+                </button>
+                <button class="app-tab" data-tab="files">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3a1 1 0 011-1h4l1.5 1.5H13a1 1 0 011 1V12a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Files
+                    {% if files %}<span class="tab-count">{{ files|length }}</span>{% endif %}
+                </button>
             </div>
-            
-            <!-- Secret form for submission -->
-            <form id="upload-form" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" style="display: none;">
-                <input type="file" name="file" id="actual-input" multiple>
-            </form>
-        </section>
 
-        <section id="files-tab" class="tab-content">
-            <div class="file-section">
-                <h2>📦 Shared Files</h2>
-                {% if files %}
-                <ul class="file-list">
-                    {% for file in files %}
-                    <li class="file-item">
-                        <div class="file-info">
-                            <span style="font-size: 1.5rem;">📄</span>
-                            <div>
-                                <div class="file-name" title="{{ file.name }}">{{ file.name }}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Size: {{ file.size }}</div>
-                            </div>
+            <div id="panel-upload" class="app-panel active">
+                <div class="drop-zone" id="dropZone">
+                    <div class="dz-inner">
+                        <div class="dz-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M18 6v16M11 13l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 28h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                         </div>
-                        <a href="{{ url_for('download_file', filename=file.name) }}" class="download-link">Download</a>
+                        <p class="dz-title">Drop files here</p>
+                        <p class="dz-sub">or <span class="dz-browse">browse from device</span> — stage multiple files, then send together.</p>
+                        <input type="file" id="fileInput" multiple>
+                    </div>
+                </div>
+
+                <div class="staging" id="stagingArea" style="display:none">
+                    <div class="staging-header">
+                        <div>
+                            <h3>Staged for upload</h3>
+                            <span id="stagingCount">0 files</span>
+                        </div>
+                        <button class="btn-ghost-sm" id="clearAllBtn">Clear all</button>
+                    </div>
+                    <ul class="staging-list" id="stagingList"></ul>
+                    <div class="staging-footer">
+                        <div class="staging-total" id="stagingTotal">Total: 0 KB</div>
+                        <button class="btn-primary" id="uploadBtn">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                            Upload files
+                        </button>
+                    </div>
+                </div>
+
+                <form id="uploadForm" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" style="display:none">
+                    <input type="file" name="file" id="actualInput" multiple>
+                </form>
+            </div>
+
+            <div id="panel-files" class="app-panel">
+                <div class="files-toolbar">
+                    <div class="search-wrap">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.4"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                        <input type="text" placeholder="Search files…" id="searchInput">
+                    </div>
+                    <select class="sort-select" id="sortSelect">
+                        <option>Newest first</option>
+                        <option>Oldest first</option>
+                        <option>Largest first</option>
+                        <option>Name A–Z</option>
+                    </select>
+                </div>
+
+                <ul class="file-list" id="fileList">
+                    {% if files %}
+                    {% for file in files %}
+                    <li class="file-item" data-name="{{ file.name }}" data-size="{{ file.size }}" data-mtime="{{ file.mtime }}">
+                        {% set extension = file.name.rsplit('.', 1)[-1].upper() if '.' in file.name else 'FILE' %}
+                        <div class="fi-icon {{ extension|lower }}-type">{{ extension }}</div>
+                        <div class="fi-info">
+                            <span class="fi-name" title="{{ file.name }}">{{ file.name }}</span>
+                            <span class="fi-meta">{{ file.size }}</span>
+                        </div>
+                        <div class="fi-actions">
+                            <button class="fi-btn copy-btn" type="button" title="Copy share link" data-copy-url="{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) }}">
+                                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                            </button>
+                            <a href="{{ url_for('download_file', filename=file.name) }}" class="fi-btn download-btn" title="Download">
+                                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v7M4.5 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                            </a>
+                        </div>
                     </li>
                     {% endfor %}
+                    {% else %}
+                    <li class="empty-files-state">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="margin-bottom:12px;opacity:.3"><path d="M6 8a2 2 0 012-2h9l3 3h5a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.5"/></svg>
+                        <p>No files yet. Upload something to get started.</p>
+                    </li>
+                    {% endif %}
                 </ul>
-                {% else %}
-                <div class="empty-state">
-                    <p>No files shared yet. Be the first to upload!</p>
+
+                <div class="files-footer">
+                    <span>{{ files|length }} file{% if files|length != 1 %}s{% endif %} shared</span>
+                    <span>Batch limit: {{ max_files }}</span>
                 </div>
-                {% endif %}
             </div>
-        </section>
+        </div>
+    </div>
+</section>
+
+<section id="features" class="features">
+    <div class="section-inner">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">Built for real file-sharing workflows.</h2>
+
+        <div class="feature-grid feature-grid-balanced">
+            <div class="feature-card">
+                <div class="fc-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="4" width="20" height="20" rx="4" fill="currentColor" opacity=".12"/><path d="M14 8v8M10 12l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 20h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </div>
+                <h3>Stage before you send</h3>
+                <p>Add as many files as you need, review the full set, then upload in one go. Nothing gets sent until you confirm.</p>
+            </div>
+            <div class="feature-card">
+                <div class="fc-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="8" width="18" height="14" rx="3" fill="currentColor" opacity=".12"/><path d="M9 8V7a5 5 0 0110 0v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="15" r="2" fill="currentColor"/></svg>
+                </div>
+                <h3>Quota you can see</h3>
+                <p>The storage meter reflects actual backend limits in real time. When no cap is set, it shows unlimited.</p>
+            </div>
+            <div class="feature-card">
+                <div class="fc-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" fill="currentColor" opacity=".12"/><path d="M9 14l3.5 3.5L19 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>No duplicate storage</h3>
+                <p>File hashes are checked before each upload. If an identical file already exists, it gets skipped rather than stored twice.</p>
+            </div>
+            <div class="feature-card">
+                <div class="fc-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="4" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="16" y="4" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="4" y="16" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="16" y="16" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/></svg>
+                </div>
+                <h3>Opaque share links</h3>
+                <p>Share URLs use a token, not the raw filename. Recipients get a clean link; the actual path stays private.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="site-footer" id="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <div class="footer-logo">
+                <div class="logo-mark logo-mark-sm">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
+                        <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span>FileFlow</span>
+            </div>
+            <p class="footer-tagline">Secure file sharing, simplified.</p>
+        </div>
+
+        <div class="footer-cols footer-cols-simple">
+            <div class="footer-col">
+                <h4>Navigate</h4>
+                <a href="#app">Upload</a>
+                <a href="#features">Features</a>
+            </div>
+            <div class="footer-col">
+                <h4>Status</h4>
+                <a href="#app">{{ files|length }} file{% if files|length != 1 %}s{% endif %} shared</a>
+                <a href="#app">{{ max_files }}-file batch limit</a>
+                <a href="#app">{{ storage.total }} total storage</a>
+            </div>
+        </div>
     </div>
 
-    <script>
-        // Tab Switching
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            if (tab === 'upload') {
-                document.querySelector('button[onclick="switchTab(\'upload\')"]').classList.add('active');
-                document.getElementById('upload-tab').classList.add('active');
-            } else {
-                document.querySelector('button[onclick="switchTab(\'files\')"]').classList.add('active');
-                document.getElementById('files-tab').classList.add('active');
-            }
-        }
+    <div class="footer-bottom">
+        <div class="footer-bottom-inner">
+            <span>© 2026 FileFlow Inc. All rights reserved.</span>
+            <div class="footer-bottom-badges">
+                <span class="security-badge">SOC 2 Type II</span>
+                <span class="security-badge">GDPR compliant</span>
+                <span class="security-badge">ISO 27001</span>
+            </div>
+        </div>
+    </div>
+</footer>
 
-        // Staging Logic
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const stagingArea = document.getElementById('staging-area');
-        const stagingList = document.getElementById('staging-list');
-        const actualInput = document.getElementById('actual-input');
-        
-        let stagedFiles = [];
+<div class="toast" id="toast"></div>
 
-        function addFilesToStaging(files) {
-            Array.from(files).forEach(file => {
-                // Prevent duplicates in current staging
-                if (!stagedFiles.find(f => f.name === file.name && f.size === file.size)) {
-                    stagedFiles.push(file);
-                }
-            });
-            renderStaging();
-        }
-
-        function renderStaging() {
-            stagingList.innerHTML = '';
-            if (stagedFiles.length > 0) {
-                stagingArea.style.display = 'block';
-                stagedFiles.forEach((file, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'staging-item';
-                    
-                    const infoDiv = document.createElement('div');
-                    infoDiv.className = 'file-info';
-                    
-                    const nameStrong = document.createElement('strong');
-                    nameStrong.textContent = file.name;
-                    
-                    const sizeSpan = document.createElement('span');
-                    sizeSpan.style.color = 'var(--text-secondary)';
-                    sizeSpan.style.marginLeft = '0.5rem';
-                    sizeSpan.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
-                    
-                    infoDiv.appendChild(nameStrong);
-                    infoDiv.appendChild(sizeSpan);
-                    
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove-btn';
-                    removeBtn.textContent = '✕';
-                    removeBtn.onclick = () => removeFile(index);
-                    
-                    li.appendChild(infoDiv);
-                    li.appendChild(removeBtn);
-                    stagingList.appendChild(li);
-                });
-            } else {
-                stagingArea.style.display = 'none';
-            }
-        }
-
-        function removeFile(index) {
-            stagedFiles.splice(index, 1);
-            renderStaging();
-        }
-
-        function clearStaging() {
-            stagedFiles = [];
-            renderStaging();
-        }
-
-        function uploadFiles() {
-            if (stagedFiles.length === 0) return;
-            
-            const dataTransfer = new DataTransfer();
-            stagedFiles.forEach(file => dataTransfer.items.add(file));
-            actualInput.files = dataTransfer.files;
-            
-            document.getElementById('upload-form').submit();
-        }
-
-        // Event Listeners for Input
-        fileInput.addEventListener('change', (e) => {
-            addFilesToStaging(e.target.files);
-            fileInput.value = ''; // Reset input to allow re-selecting same file
-        });
-
-        // Robust Drag & Drop
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => e.preventDefault());
-        });
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.add('active');
-            });
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.remove('active');
-            });
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            addFilesToStaging(files);
-        });
-    </script>
+<script src="https://unpkg.com/@studio-freight/lenis@1.0.42/bundled/lenis.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

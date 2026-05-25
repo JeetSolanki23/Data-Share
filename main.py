@@ -1,15 +1,20 @@
 import os
 import hashlib
 import sqlite3
+import secrets
 from pathlib import Path
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
 # Load environment variables
 load_dotenv()
+if os.environ.get("CLOUDINARY_URL"):
+    cloudinary.config(secure=True)
 
 class Config:
     """Application configuration."""
@@ -62,6 +67,8 @@ def init_db():
     ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_sha256 ON file_hashes (sha256)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
+    ensure_file_metadata_columns(cursor)
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
     conn.commit()
     conn.close()
 
@@ -114,6 +121,8 @@ def sync_cache():
     if 'size_bytes' not in columns:
         cursor.execute('ALTER TABLE file_hashes ADD COLUMN size_bytes INTEGER')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_size ON file_hashes (size_bytes)')
+    ensure_file_metadata_columns(cursor)
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_share_token ON file_hashes (share_token)')
     
     # 1. Add missing files
     for f in Config.STORAGE_DIR.iterdir():
@@ -136,6 +145,10 @@ def sync_cache():
     for row in db_files:
         if not (Config.STORAGE_DIR / row[0]).exists():
             cursor.execute('DELETE FROM file_hashes WHERE filename = ?', (row[0],))
+
+    cursor.execute('SELECT filename FROM file_hashes WHERE share_token IS NULL OR share_token = ""')
+    for (filename,) in cursor.fetchall():
+        cursor.execute('UPDATE file_hashes SET share_token = ? WHERE filename = ?', (generate_share_token(cursor), filename))
             
     conn.commit()
     conn.close()
@@ -164,6 +177,132 @@ def get_next_file_number():
 def get_total_storage_usage():
     """Calculates total size of files in storage in bytes."""
     return sum(f.stat().st_size for f in Config.STORAGE_DIR.iterdir() if f.is_file())
+
+def ensure_file_metadata_columns(cursor):
+    """Adds Cloudinary metadata columns when missing."""
+    cursor.execute("PRAGMA table_info(file_hashes)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if 'share_token' not in columns:
+        cursor.execute('ALTER TABLE file_hashes ADD COLUMN share_token TEXT')
+    if 'cloudinary_public_id' not in columns:
+        cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_public_id TEXT')
+    if 'cloudinary_url' not in columns:
+        cursor.execute('ALTER TABLE file_hashes ADD COLUMN cloudinary_url TEXT')
+
+
+def generate_share_token(cursor):
+    """Generates a short opaque token that avoids revealing filenames."""
+    while True:
+        token = secrets.token_urlsafe(9).rstrip('=')
+        cursor.execute('SELECT 1 FROM file_hashes WHERE share_token = ? LIMIT 1', (token,))
+        if not cursor.fetchone():
+            return token
+
+
+def ensure_share_token(filename):
+    """Ensures a file has a persistent opaque share token."""
+    conn = sqlite3.connect(Config.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT share_token FROM file_hashes WHERE filename = ?', (filename,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    if row[0]:
+        conn.close()
+        return row[0]
+
+    token = generate_share_token(cursor)
+    cursor.execute('UPDATE file_hashes SET share_token = ? WHERE filename = ?', (token, filename))
+    conn.commit()
+    conn.close()
+    return token
+
+def upload_file_to_cloudinary(file_path, filename):
+    """Uploads a stored file to Cloudinary and returns the hosted URL."""
+    if not os.environ.get("CLOUDINARY_URL"):
+        return None
+
+    upload_result = cloudinary.uploader.upload(
+        str(file_path),
+        resource_type="raw",
+        public_id=filename,
+        overwrite=True,
+    )
+    return {
+        'public_id': upload_result.get('public_id'),
+        'url': upload_result.get('secure_url') or upload_result.get('url')
+    }
+
+def update_cloudinary_cache(filename, public_id, cloudinary_url):
+    """Stores hosted Cloudinary details for a file."""
+    conn = sqlite3.connect(Config.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE file_hashes SET cloudinary_public_id = ?, cloudinary_url = ? WHERE filename = ?',
+        (public_id, cloudinary_url, filename)
+    )
+    conn.commit()
+    conn.close()
+
+def get_file_record(filename):
+    """Fetches metadata for a stored file."""
+    conn = sqlite3.connect(Config.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT filename, sha256, size_bytes, share_token, cloudinary_public_id, cloudinary_url FROM file_hashes WHERE filename = ? OR share_token = ? LIMIT 1',
+        (filename, filename)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+
+    return {
+        'filename': row[0],
+        'sha256': row[1],
+        'size_bytes': row[2],
+        'share_token': row[3],
+        'cloudinary_public_id': row[4],
+        'cloudinary_url': row[5],
+    }
+
+def get_stored_file_info(filename):
+    """Returns display information for a stored file if it exists."""
+    record = get_file_record(filename)
+    if not record:
+        return None
+
+    safe_name = os.path.basename(record['filename'])
+    file_path = Config.STORAGE_DIR / safe_name
+    if file_path.exists() and file_path.is_file() and safe_name != 'metadata.db':
+        stat = file_path.stat()
+        size_bytes = stat.st_size
+        mtime = stat.st_mtime
+    else:
+        size_bytes = record['size_bytes'] or 0
+        mtime = 0
+
+    share_token = record['share_token'] or ensure_share_token(safe_name)
+
+    if size_bytes < 1024:
+        size_str = f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        size_str = f"{size_bytes / 1024:.1f} KB"
+    else:
+        size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+
+    return {
+        'name': safe_name,
+        'size': size_str,
+        'size_bytes': size_bytes,
+        'mtime': mtime,
+        'download_url': record['cloudinary_url'] or url_for('download_file', filename=safe_name),
+        'cloudinary_url': record['cloudinary_url'],
+        'share_token': share_token,
+        'share_url': url_for('recipient_file', identifier=share_token) if share_token else url_for('recipient_file', identifier=safe_name),
+    }
 
 @app.route('/')
 def dashboard():
@@ -201,7 +340,8 @@ def dashboard():
                 files_data.append({
                     'name': f.name,
                     'size': size_str,
-                    'mtime': stat.st_mtime
+                    'mtime': stat.st_mtime,
+                    'share_token': (get_file_record(f.name) or {}).get('share_token') or ensure_share_token(f.name),
                 })
         
         files_data.sort(key=lambda x: x['mtime'], reverse=True)
@@ -272,6 +412,13 @@ def upload_file():
                         file_hash = get_file_hash(file) 
                         file.save(str(file_path))
                         update_hash_cache(filename, file_hash, file_size)
+                        ensure_share_token(filename)
+                        try:
+                            cloudinary_data = upload_file_to_cloudinary(file_path, filename)
+                            if cloudinary_data:
+                                update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                        except Exception as cloudinary_error:
+                            app.logger.warning(f"Cloudinary upload failed for {filename}: {cloudinary_error}")
                         success_count += 1
                     except Exception as e:
                         app.logger.error(f"Error saving file {filename}: {e}")
@@ -291,6 +438,13 @@ def upload_file():
                 try:
                     file.save(str(file_path))
                     update_hash_cache(filename, file_hash, file_size)
+                    ensure_share_token(filename)
+                    try:
+                        cloudinary_data = upload_file_to_cloudinary(file_path, filename)
+                        if cloudinary_data:
+                            update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                    except Exception as cloudinary_error:
+                        app.logger.warning(f"Cloudinary upload failed for {filename}: {cloudinary_error}")
                     success_count += 1
                 except Exception as e:
                     app.logger.error(f"Error saving file {filename}: {e}")
@@ -309,6 +463,16 @@ def download_file(filename):
     """Securely sends a file for download."""
     safe_name = os.path.basename(filename)
     return send_from_directory(Config.STORAGE_DIR, safe_name, as_attachment=True)
+
+@app.route('/r/<path:identifier>')
+def recipient_file(identifier):
+    """Shows the recipient download page for a shared file."""
+    file_info = get_stored_file_info(identifier)
+    if not file_info:
+        flash("That shared file is no longer available.", "error")
+        return redirect(url_for('dashboard'))
+
+    return render_template('recipient.html', file=file_info)
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
