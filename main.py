@@ -244,14 +244,27 @@ def ensure_share_token(filename):
     conn.close()
     return token
 
-def upload_file_to_cloudinary(file_path, filename):
-    """Uploads a stored file to Cloudinary and returns the hosted URL. Returns None if unavailable."""
+def upload_file_to_cloudinary(file_or_path, filename):
+    """
+    Uploads a file to Cloudinary.
+    - For new uploads (Cloudinary-only mode): pass the file object
+    - For existing files (migration): pass the file path
+    Returns dict with public_id and url on success, None on failure.
+    """
     if not os.environ.get("CLOUDINARY_URL"):
         return None
 
     try:
+        # Handle both file objects and file paths
+        if isinstance(file_or_path, str) or isinstance(file_or_path, Path):
+            upload_source = str(file_or_path)
+        else:
+            # It's a file object - seek to beginning
+            file_or_path.seek(0)
+            upload_source = file_or_path
+            
         upload_result = cloudinary.uploader.upload(
-            str(file_path),
+            upload_source,
             resource_type="raw",
             public_id=filename,
             overwrite=True,
@@ -457,23 +470,35 @@ def upload_file():
                     filename = f"{next_num}_{secure_filename(file.filename)}"
                     file_path = Config.STORAGE_DIR / filename
                     try:
-                        file_hash = get_file_hash(file) 
-                        file.save(str(file_path))
-                        update_hash_cache(filename, file_hash, file_size)
-                        ensure_share_token(filename)
-                        cloudinary_data = upload_file_to_cloudinary(file_path, filename)
-                        if cloudinary_data:
-                            update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
-                            # Delete local file after successful Cloudinary upload
-                            if file_path.exists():
-                                file_path.unlink()
-                            app.logger.info(f"File {filename} uploaded to Cloudinary")
+                        file_hash = get_file_hash(file)
+                        file.seek(0)  # Reset file pointer for upload
+                        
+                        if cloudinary_configured:
+                            # Cloudinary mode: upload directly without saving locally
+                            cloudinary_data = upload_file_to_cloudinary(file, filename)
+                            if cloudinary_data:
+                                update_hash_cache(filename, file_hash, file_size)
+                                update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                                ensure_share_token(filename)
+                                app.logger.info(f"File {filename} uploaded to Cloudinary")
+                                success_count += 1
+                            else:
+                                # Cloudinary configured but upload failed - reject the upload
+                                flash(f"Cloudinary upload failed for {file.filename}. File not saved.", "error")
+                                app.logger.error(f"Cloudinary upload failed for {filename}")
                         else:
-                            # Fallback to local storage
-                            app.logger.info(f"Cloudinary unavailable, using local storage for {filename}")
-                        success_count += 1
+                            # Local storage mode: save to local storage only
+                            file.seek(0)  # Reset file pointer for saving
+                            file.save(str(file_path))
+                            update_hash_cache(filename, file_hash, file_size)
+                            ensure_share_token(filename)
+                            app.logger.info(f"File {filename} saved to local storage")
+                            success_count += 1
                     except Exception as e:
-                        app.logger.error(f"Error saving file {filename}: {e}")
+                        # Clean up any partial files
+                        if file_path.exists():
+                            file_path.unlink()
+                        app.logger.error(f"Error processing file {filename}: {e}")
                         flash(f"Failed to save {file.filename}.", "error")
                     continue
 
@@ -488,22 +513,34 @@ def upload_file():
                 filename = f"{next_num}_{secure_filename(file.filename)}"
                 file_path = Config.STORAGE_DIR / filename
                 try:
-                    file.save(str(file_path))
-                    update_hash_cache(filename, file_hash, file_size)
-                    ensure_share_token(filename)
-                    cloudinary_data = upload_file_to_cloudinary(file_path, filename)
-                    if cloudinary_data:
-                        update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
-                        # Delete local file after successful Cloudinary upload
-                        if file_path.exists():
-                            file_path.unlink()
-                        app.logger.info(f"File {filename} uploaded to Cloudinary")
+                    file.seek(0)  # Reset file pointer for processing
+                    
+                    if cloudinary_configured:
+                        # Cloudinary mode: upload directly without saving locally
+                        cloudinary_data = upload_file_to_cloudinary(file, filename)
+                        if cloudinary_data:
+                            update_hash_cache(filename, file_hash, file_size)
+                            update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                            ensure_share_token(filename)
+                            app.logger.info(f"File {filename} uploaded to Cloudinary")
+                            success_count += 1
+                        else:
+                            # Cloudinary configured but upload failed - reject the upload
+                            flash(f"Cloudinary upload failed for {file.filename}. File not saved.", "error")
+                            app.logger.error(f"Cloudinary upload failed for {filename}")
                     else:
-                        # Fallback to local storage
-                        app.logger.info(f"Cloudinary unavailable, using local storage for {filename}")
-                    success_count += 1
+                        # Local storage mode: save to local storage only
+                        file.seek(0)  # Reset file pointer for saving
+                        file.save(str(file_path))
+                        update_hash_cache(filename, file_hash, file_size)
+                        ensure_share_token(filename)
+                        app.logger.info(f"File {filename} saved to local storage")
+                        success_count += 1
                 except Exception as e:
-                    app.logger.error(f"Error saving file {filename}: {e}")
+                    # Clean up any partial files
+                    if file_path.exists():
+                        file_path.unlink()
+                    app.logger.error(f"Error processing file {filename}: {e}")
                     flash(f"Failed to save {file.filename}.", "error")
                 
         if success_count > 0:
@@ -517,7 +554,7 @@ def upload_file():
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
-    """Downloads file from Cloudinary if available, otherwise from local storage."""
+    """Downloads file from configured storage (Cloudinary if configured, local storage otherwise)."""
     safe_name = os.path.basename(filename)
     file_info = get_stored_file_info(safe_name)
     
@@ -525,12 +562,18 @@ def download_file(filename):
         flash("File not found or not available for download.", "error")
         return redirect(url_for('dashboard'))
     
-    # Use Cloudinary if available
-    if file_info.get('cloudinary_url'):
-        return redirect(file_info['cloudinary_url'] + '?dl=true')
-    
-    # Fallback to local storage
-    return send_from_directory(Config.STORAGE_DIR, safe_name, as_attachment=True)
+    if cloudinary_configured:
+        # Cloudinary mode: all files must be on Cloudinary
+        if file_info.get('cloudinary_url'):
+            return redirect(file_info['cloudinary_url'] + '?dl=true')
+        else:
+            # File should be on Cloudinary but isn't - error
+            flash("File is not available on Cloudinary.", "error")
+            app.logger.error(f"File {safe_name} missing Cloudinary URL in Cloudinary mode")
+            return redirect(url_for('dashboard'))
+    else:
+        # Local storage mode: serve from local storage
+        return send_from_directory(Config.STORAGE_DIR, safe_name, as_attachment=True)
 
 @app.route('/r/<path:identifier>')
 def recipient_file(identifier):
