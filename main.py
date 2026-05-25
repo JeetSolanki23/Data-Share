@@ -10,11 +10,36 @@ from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 
 # Load environment variables
 load_dotenv()
+
+# Configure Cloudinary
+cloudinary_configured = False
 if os.environ.get("CLOUDINARY_URL"):
-    cloudinary.config(secure=True)
+    try:
+        # Parse CLOUDINARY_URL manually: cloudinary://api_key:api_secret@cloud_name
+        cloudinary_url = os.environ.get("CLOUDINARY_URL")
+        if cloudinary_url.startswith("cloudinary://"):
+            cloudinary_url = cloudinary_url.replace("cloudinary://", "")
+            credentials, cloud_name = cloudinary_url.rsplit("@", 1)
+            api_key, api_secret = credentials.split(":", 1)
+            
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret,
+                secure=True
+            )
+            cloudinary_configured = True
+            print("✓ Cloudinary configured successfully")
+        else:
+            print("⚠ CLOUDINARY_URL format invalid - expected cloudinary://api_key:api_secret@cloud_name")
+    except Exception as e:
+        print(f"✗ Cloudinary configuration failed: {e}")
+else:
+    print("⚠ CLOUDINARY_URL not found - will use local storage only")
 
 class Config:
     """Application configuration."""
@@ -220,20 +245,41 @@ def ensure_share_token(filename):
     return token
 
 def upload_file_to_cloudinary(file_path, filename):
-    """Uploads a stored file to Cloudinary and returns the hosted URL."""
+    """Uploads a stored file to Cloudinary and returns the hosted URL. Returns None if unavailable."""
     if not os.environ.get("CLOUDINARY_URL"):
         return None
 
-    upload_result = cloudinary.uploader.upload(
-        str(file_path),
-        resource_type="raw",
-        public_id=filename,
-        overwrite=True,
-    )
-    return {
-        'public_id': upload_result.get('public_id'),
-        'url': upload_result.get('secure_url') or upload_result.get('url')
-    }
+    try:
+        upload_result = cloudinary.uploader.upload(
+            str(file_path),
+            resource_type="raw",
+            public_id=filename,
+            overwrite=True,
+        )
+        return {
+            'public_id': upload_result.get('public_id'),
+            'url': upload_result.get('secure_url') or upload_result.get('url')
+        }
+    except Exception as e:
+        app.logger.warning(f"Cloudinary upload failed: {e}")
+        return None
+
+
+def verify_cloudinary_connection():
+    """Tests the Cloudinary connection and returns True if successful."""
+    if not os.environ.get("CLOUDINARY_URL"):
+        return False
+    
+    try:
+        # Try a simple API call to verify connection
+        result = cloudinary.api.ping()
+        if result.get('status') == 'ok':
+            app.logger.info("✓ Cloudinary connection verified")
+            return True
+    except Exception as e:
+        app.logger.error(f"✗ Cloudinary connection failed: {e}")
+    
+    return False
 
 def update_cloudinary_cache(filename, public_id, cloudinary_url):
     """Stores hosted Cloudinary details for a file."""
@@ -298,8 +344,9 @@ def get_stored_file_info(filename):
         'size': size_str,
         'size_bytes': size_bytes,
         'mtime': mtime,
-        'download_url': record['cloudinary_url'] or url_for('download_file', filename=safe_name),
+        'download_url': url_for('download_file', filename=safe_name),
         'cloudinary_url': record['cloudinary_url'],
+        'is_cloudinary': bool(record['cloudinary_url']),
         'share_token': share_token,
         'share_url': url_for('recipient_file', identifier=share_token) if share_token else url_for('recipient_file', identifier=safe_name),
     }
@@ -326,25 +373,26 @@ def dashboard():
             storage_info['is_full'] = False
 
         files_data = []
-        for f in Config.STORAGE_DIR.iterdir():
-            if f.is_file() and f.name != 'metadata.db':
-                stat = f.stat()
-                size_bytes = stat.st_size
-                if size_bytes < 1024:
-                    size_str = f"{size_bytes} B"
-                elif size_bytes < 1024 * 1024:
-                    size_str = f"{size_bytes / 1024:.1f} KB"
-                else:
-                    size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
-                
-                files_data.append({
-                    'name': f.name,
-                    'size': size_str,
-                    'mtime': stat.st_mtime,
-                    'share_token': (get_file_record(f.name) or {}).get('share_token') or ensure_share_token(f.name),
-                })
-        
-        files_data.sort(key=lambda x: x['mtime'], reverse=True)
+        conn = sqlite3.connect(Config.DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT filename, size_bytes, cloudinary_url, share_token FROM file_hashes ORDER BY rowid DESC')
+        for filename, size_bytes, cloudinary_url, share_token in cursor.fetchall():
+            if size_bytes < 1024:
+                size_str = f"{size_bytes} B"
+            elif size_bytes < 1024 * 1024:
+                size_str = f"{size_bytes / 1024:.1f} KB"
+            else:
+                size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+            
+            token = share_token or ensure_share_token(filename)
+            files_data.append({
+                'name': filename,
+                'size': size_str,
+                'mtime': 0,
+                'share_token': token,
+                'is_cloudinary': bool(cloudinary_url),
+            })
+        conn.close()
     except Exception as e:
         app.logger.error(f"Error listing files: {e}")
         files_data = []
@@ -413,12 +461,16 @@ def upload_file():
                         file.save(str(file_path))
                         update_hash_cache(filename, file_hash, file_size)
                         ensure_share_token(filename)
-                        try:
-                            cloudinary_data = upload_file_to_cloudinary(file_path, filename)
-                            if cloudinary_data:
-                                update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
-                        except Exception as cloudinary_error:
-                            app.logger.warning(f"Cloudinary upload failed for {filename}: {cloudinary_error}")
+                        cloudinary_data = upload_file_to_cloudinary(file_path, filename)
+                        if cloudinary_data:
+                            update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                            # Delete local file after successful Cloudinary upload
+                            if file_path.exists():
+                                file_path.unlink()
+                            app.logger.info(f"File {filename} uploaded to Cloudinary")
+                        else:
+                            # Fallback to local storage
+                            app.logger.info(f"Cloudinary unavailable, using local storage for {filename}")
                         success_count += 1
                     except Exception as e:
                         app.logger.error(f"Error saving file {filename}: {e}")
@@ -439,15 +491,20 @@ def upload_file():
                     file.save(str(file_path))
                     update_hash_cache(filename, file_hash, file_size)
                     ensure_share_token(filename)
-                    try:
-                        cloudinary_data = upload_file_to_cloudinary(file_path, filename)
-                        if cloudinary_data:
-                            update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
-                    except Exception as cloudinary_error:
-                        app.logger.warning(f"Cloudinary upload failed for {filename}: {cloudinary_error}")
+                    cloudinary_data = upload_file_to_cloudinary(file_path, filename)
+                    if cloudinary_data:
+                        update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
+                        # Delete local file after successful Cloudinary upload
+                        if file_path.exists():
+                            file_path.unlink()
+                        app.logger.info(f"File {filename} uploaded to Cloudinary")
+                    else:
+                        # Fallback to local storage
+                        app.logger.info(f"Cloudinary unavailable, using local storage for {filename}")
                     success_count += 1
                 except Exception as e:
                     app.logger.error(f"Error saving file {filename}: {e}")
+                    flash(f"Failed to save {file.filename}.", "error")
                 
         if success_count > 0:
             flash(f"Successfully uploaded {success_count} new file(s).", "success")
@@ -460,8 +517,19 @@ def upload_file():
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
-    """Securely sends a file for download."""
+    """Downloads file from Cloudinary if available, otherwise from local storage."""
     safe_name = os.path.basename(filename)
+    file_info = get_stored_file_info(safe_name)
+    
+    if not file_info:
+        flash("File not found or not available for download.", "error")
+        return redirect(url_for('dashboard'))
+    
+    # Use Cloudinary if available
+    if file_info.get('cloudinary_url'):
+        return redirect(file_info['cloudinary_url'] + '?dl=true')
+    
+    # Fallback to local storage
     return send_from_directory(Config.STORAGE_DIR, safe_name, as_attachment=True)
 
 @app.route('/r/<path:identifier>')
@@ -473,6 +541,17 @@ def recipient_file(identifier):
         return redirect(url_for('dashboard'))
 
     return render_template('recipient.html', file=file_info)
+
+@app.route('/status')
+def status():
+    """Returns system status including Cloudinary connection."""
+    cloudinary_available = verify_cloudinary_connection()
+    return {
+        'status': 'running',
+        'cloudinary': 'connected' if cloudinary_available else 'unavailable',
+        'storage_mode': 'cloud+local' if cloudinary_available else 'local',
+        'timestamp': str(__import__('datetime').datetime.now())
+    }
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
@@ -488,6 +567,12 @@ if __name__ == '__main__':
     # Initialize DB and sync on startup
     init_db()
     sync_cache()
+    
+    # Verify Cloudinary connection
+    print("\n" + "="*50)
+    print("Verifying Cloudinary connection...")
+    verify_cloudinary_connection()
+    print("="*50 + "\n")
     
     debug_mode = os.environ.get("DEBUG", "False").lower() == "true"
     app.run(host="0.0.0.0", port=5000, debug=debug_mode)
