@@ -202,10 +202,8 @@ UPLOADS_PER_MINUTE=10           # Rate limit per IP
 ```
 
 **Example Scenarios**:
-- **Lab (30 users)**: `TOTAL_STORAGE_QUOTA_MB=10240` (10GB), `UPLOADS_PER_MINUTE=5`
-- **Team (5 users)**: `TOTAL_STORAGE_QUOTA_MB=2048` (2GB), `UPLOADS_PER_MINUTE=0` (unlimited)
-- **Public Demo**: `MAX_FILES_PER_UPLOAD=3`, `TOTAL_STORAGE_QUOTA_MB=1024` (1GB)
 
+Note: The application stores files on disk by default. `Config.STORAGE_DIR` defaults to `/tmp/storage`; to override in Docker or other environments set `STORAGE_DIR` in your `.env` and mount the host folder accordingly (e.g. `-v $(pwd)/storage:/app/storage -e STORAGE_DIR=/app/storage`).
 ---
 
 ## 🧪 Quality Assurance

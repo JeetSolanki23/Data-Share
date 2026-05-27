@@ -50,9 +50,10 @@ CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]
 ```bash
 docker build -t data-share .
 docker run -d -p 5000:5000 \
-  -v $(pwd)/storage:/app/storage \
-  -e SECRET_KEY=your-secret-key \
-  data-share
+    -v $(pwd)/storage:/app/storage \
+    -e SECRET_KEY=your-secret-key \
+    -e STORAGE_DIR=/app/storage \
+    data-share
 ```
 
 ---

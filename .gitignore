@@ -17,6 +17,7 @@ build/
 storage/
 uploads/
 shared_folder/
+idea.txt
 
 # Testing
 .pytest_cache/
