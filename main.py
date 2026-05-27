@@ -1422,7 +1422,7 @@ atexit.register(close_db_pool)
 # APPLICATION STARTUP
 # ============================================================================
 
-if __name__ == '__main__':
+def initialize_app():
     try:
         # Validate configuration
         validate_config()
@@ -1461,3 +1461,5 @@ if __name__ == '__main__':
     except Exception as e:
         logger.critical(f"Failed to start application: {e}")
         sys.exit(1)
+
+initialize_app()
