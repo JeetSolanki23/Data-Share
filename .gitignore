@@ -17,6 +17,7 @@ build/
 storage/
 uploads/
 shared_folder/
+logs/
 idea.txt
 
 # Testing

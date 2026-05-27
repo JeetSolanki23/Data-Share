@@ -96,25 +96,33 @@ def setup_logging():
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
-    # File handler
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
-    
-    file_handler = logging.FileHandler(log_dir / "data_share.log")
-    file_handler.setLevel(getattr(logging, log_level))
-    file_formatter = logging.Formatter(log_format)
-    file_handler.setFormatter(file_formatter)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, log_level))
-    console_formatter = logging.Formatter(log_format)
-    console_handler.setFormatter(console_formatter)
+    # Check if running on serverless (Vercel, AWS Lambda, etc.) - read-only filesystem
+    is_serverless = os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or os.environ.get("K_SERVICE")
     
     # Root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, log_level))
-    root_logger.addHandler(file_handler)
+    
+    # File handler - only on writable filesystems (local/VPS)
+    if not is_serverless:
+        try:
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
+            
+            file_handler = logging.FileHandler(log_dir / "data_share.log")
+            file_handler.setLevel(getattr(logging, log_level))
+            file_formatter = logging.Formatter(log_format)
+            file_handler.setFormatter(file_formatter)
+            root_logger.addHandler(file_handler)
+        except (OSError, IOError) as e:
+            # Silently skip file logging if filesystem is read-only
+            pass
+    
+    # Console handler - always enabled (works on all platforms)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(getattr(logging, log_level))
+    console_formatter = logging.Formatter(log_format)
+    console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
     
     return logging.getLogger(__name__)
