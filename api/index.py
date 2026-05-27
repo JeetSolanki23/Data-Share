@@ -28,21 +28,21 @@ from main import (
 
 # Thread-safe initialization on first request (cold start)
 _initialization_lock = threading.Lock()
-_initialized = False
+APP_INITIALIZED = False
 
 @app.before_request
 def initialize_on_startup():
     """Initialize database and Cloudinary on first request (thread-safe)."""
-    global _initialized
+    global APP_INITIALIZED
     
     # Check without lock first (fast path for initialized case)
-    if _initialized:
+    if APP_INITIALIZED:
         return
     
     # Acquire lock for actual initialization
     with _initialization_lock:
         # Double-check pattern: verify again after acquiring lock
-        if _initialized:
+        if APP_INITIALIZED:
             return
         
         try:
@@ -74,7 +74,7 @@ def initialize_on_startup():
             logger.info("=" * 60)
             
             # Mark as initialized only after successful completion
-            _initialized = True
+            APP_INITIALIZED = True
         except Exception as e:
             logger.critical(f"Failed to initialize application: {e}")
             import traceback
