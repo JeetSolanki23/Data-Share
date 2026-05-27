@@ -1,0 +1,19 @@
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "devCommand": "python main.py",
+  "installCommand": "pip install -r requirements.txt",
+  "framework": "flask",
+  "python": "3.11",
+  "env": {
+    "ENVIRONMENT": "production",
+    "DEBUG": "False",
+    "PORT": "5000",
+    "LOG_LEVEL": "INFO"
+  },
+  "functions": {
+    "api/index.py": {
+      "memory": 3008,
+      "maxDuration": 60
+    }
+  }
+}

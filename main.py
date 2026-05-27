@@ -7,8 +7,10 @@ import contextlib
 import logging
 import signal
 import atexit
+import time
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse
 
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
@@ -219,22 +221,112 @@ logger.info("[OK] Configuration validation passed")
 db_connection_pool = None
 use_postgres = False
 
+def parse_database_url(database_url):
+    """
+    Parse DATABASE_URL and return connection parameters.
+    Supports: postgres://, postgresql://, and full URI formats
+    Automatically enables SSL for production/serverless deployments
+    """
+    if not database_url:
+        return None
+    
+    try:
+        # Handle custom cloudinary:// format by replacing it
+        if database_url.startswith('cloudinary://'):
+            return None
+        
+        # Normalize postgresql:// to postgres://
+        if database_url.startswith('postgresql://'):
+            database_url = 'postgres' + database_url[12:]
+        
+        # Parse the URL
+        parsed = urlparse(database_url)
+        
+        # Build connection string with SSL support for serverless (Vercel, Heroku, etc.)
+        is_serverless = os.environ.get("VERCEL") or os.environ.get("DYNO") or os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        
+        # For serverless or production, enforce SSL
+        if is_serverless or os.environ.get("ENVIRONMENT") == "production":
+            # Vercel and other serverless platforms require SSL
+            if "sslmode=" not in database_url:
+                if "?" in database_url:
+                    database_url = database_url + "&sslmode=require"
+                else:
+                    database_url = database_url + "?sslmode=require"
+            logger.info("[INFO] Enabling SSL for PostgreSQL (serverless environment detected)")
+        
+        return database_url
+    
+    except Exception as e:
+        logger.error(f"[ERROR] Failed to parse DATABASE_URL: {e}")
+        return None
+
 def init_db_pool():
     """Initialize database connection pool."""
     global db_connection_pool, use_postgres
     
     if Config.DATABASE_URL and psycopg2_pool:
         try:
-            db_connection_pool = psycopg2_pool.SimpleConnectionPool(
-                Config.DB_POOL_MIN,
-                Config.DB_POOL_MAX,
-                Config.DATABASE_URL,
-                connect_timeout=10
-            )
-            use_postgres = True
-            logger.info("[OK] PostgreSQL connection pool initialized")
+            # Parse DATABASE_URL with SSL support
+            parsed_db_url = parse_database_url(Config.DATABASE_URL)
+            if not parsed_db_url:
+                use_postgres = False
+                logger.info("[OK] Using SQLite for metadata")
+                return
+            
+            # For serverless environments, use smaller connection pool
+            is_serverless = os.environ.get("VERCEL") or os.environ.get("DYNO") or os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+            min_size = 1
+            max_size = 2 if is_serverless else Config.DB_POOL_MAX
+            
+            logger.info(f"[INFO] Initializing PostgreSQL pool (min={min_size}, max={max_size}, serverless={bool(is_serverless)})...")
+            
+            # Try to initialize connection pool with retry logic
+            max_retries = 3
+            retry_delay = 1
+            
+            for attempt in range(max_retries):
+                try:
+                    db_connection_pool = psycopg2_pool.SimpleConnectionPool(
+                        min_size,
+                        max_size,
+                        parsed_db_url,
+                        connect_timeout=10
+                    )
+                    use_postgres = True
+                    logger.info("[OK] PostgreSQL connection pool initialized successfully")
+                    return
+                
+                except psycopg2.OperationalError as e:
+                    error_msg = str(e)
+                    logger.warning(f"[WARN] PostgreSQL connection attempt {attempt + 1}/{max_retries} failed: {error_msg}")
+                    
+                    # Check for common errors
+                    if "timeout" in error_msg.lower():
+                        logger.error("[ERROR] PostgreSQL connection timeout - check DATABASE_URL and network connectivity")
+                    elif "password" in error_msg.lower():
+                        logger.error("[ERROR] PostgreSQL authentication failed - check database credentials")
+                    elif "does not exist" in error_msg.lower():
+                        logger.error("[ERROR] PostgreSQL database does not exist")
+                    elif "ssl" in error_msg.lower() or "certificate" in error_msg.lower():
+                        logger.error("[ERROR] PostgreSQL SSL error - the host may require SSL connections")
+                    
+                    if attempt < max_retries - 1:
+                        logger.info(f"[INFO] Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        logger.error("[ERROR] PostgreSQL connection failed after all retries - falling back to SQLite")
+                        use_postgres = False
+                        return
+                
+                except Exception as e:
+                    logger.error(f"[ERROR] Failed to initialize PostgreSQL pool: {type(e).__name__}: {e}")
+                    use_postgres = False
+                    return
+        
         except Exception as e:
-            logger.error(f"[ERROR] Failed to initialize PostgreSQL pool: {e}")
+            logger.error(f"[ERROR] Unexpected error during database pool initialization: {e}")
             use_postgres = False
     else:
         use_postgres = False
@@ -394,11 +486,11 @@ def generate_share_token(cursor):
 cloudinary_configured = False
 
 def setup_cloudinary():
-    """Configure Cloudinary with validation."""
+    """Configure Cloudinary with validation and retry logic."""
     global cloudinary_configured
     
     if not CLOUDINARY_AVAILABLE:
-        logger.warning("Cloudinary library not available")
+        logger.warning("Cloudinary library not available - install with: pip install cloudinary")
         return False
     
     cloudinary_url = os.environ.get("CLOUDINARY_URL")
@@ -408,13 +500,24 @@ def setup_cloudinary():
     
     try:
         if not cloudinary_url.startswith("cloudinary://"):
-            logger.error("CLOUDINARY_URL format invalid - expected cloudinary://api_key:api_secret@cloud_name")
+            logger.error("[ERROR] CLOUDINARY_URL format invalid - expected cloudinary://api_key:api_secret@cloud_name")
             return False
         
-        cloudinary_url = cloudinary_url.replace("cloudinary://", "")
-        credentials, cloud_name = cloudinary_url.rsplit("@", 1)
-        api_key, api_secret = credentials.split(":", 1)
+        # Parse credentials
+        cloudinary_url_parsed = cloudinary_url.replace("cloudinary://", "")
+        try:
+            credentials, cloud_name = cloudinary_url_parsed.rsplit("@", 1)
+            api_key, api_secret = credentials.split(":", 1)
+        except ValueError:
+            logger.error("[ERROR] CLOUDINARY_URL format invalid - could not parse credentials")
+            return False
         
+        # Validate that we have all required fields
+        if not cloud_name or not api_key or not api_secret:
+            logger.error("[ERROR] CLOUDINARY_URL missing required fields (api_key, api_secret, or cloud_name)")
+            return False
+        
+        # Configure Cloudinary
         cloudinary.config(
             cloud_name=cloud_name,
             api_key=api_key,
@@ -422,17 +525,30 @@ def setup_cloudinary():
             secure=True
         )
         
-        # Test connection
-        if verify_cloudinary_connection():
-            cloudinary_configured = True
-            logger.info("[OK] Cloudinary configured successfully")
-            return True
-        else:
-            logger.error("Cloudinary connection test failed")
-            return False
+        logger.info(f"[INFO] Cloudinary configured for cloud: {cloud_name}")
+        
+        # Test connection with retry logic
+        max_retries = 3
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                if verify_cloudinary_connection():
+                    cloudinary_configured = True
+                    logger.info("[OK] Cloudinary configured and verified successfully")
+                    return True
+            except Exception as e:
+                logger.warning(f"[WARN] Cloudinary connection attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"[INFO] Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+        
+        logger.error("[ERROR] Cloudinary connection verification failed after all retries - check credentials and network connectivity")
+        return False
     
     except Exception as e:
-        logger.error(f"Cloudinary configuration failed: {e}")
+        logger.error(f"[ERROR] Cloudinary configuration failed: {type(e).__name__}: {e}")
         return False
 
 def verify_cloudinary_connection():
