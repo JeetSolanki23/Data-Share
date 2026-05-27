@@ -7,6 +7,7 @@ It initializes the Flask application with proper serverless environment handling
 
 import sys
 import os
+import threading
 from pathlib import Path
 
 # Add parent directory to path so we can import main module
@@ -25,15 +26,25 @@ from main import (
     cloudinary_configured
 )
 
-# Initialize on first request (cold start)
-initialized = False
+# Thread-safe initialization on first request (cold start)
+_initialization_lock = threading.Lock()
+_initialized = False
 
 @app.before_request
 def initialize_on_startup():
-    """Initialize database and Cloudinary on first request."""
-    global initialized
+    """Initialize database and Cloudinary on first request (thread-safe)."""
+    global _initialized
     
-    if not initialized:
+    # Check without lock first (fast path for initialized case)
+    if _initialized:
+        return
+    
+    # Acquire lock for actual initialization
+    with _initialization_lock:
+        # Double-check pattern: verify again after acquiring lock
+        if _initialized:
+            return
+        
         try:
             logger.info("Initializing application on cold start...")
             
@@ -62,7 +73,8 @@ def initialize_on_startup():
             logger.info(f"Environment: {Config.ENVIRONMENT}")
             logger.info("=" * 60)
             
-            initialized = True
+            # Mark as initialized only after successful completion
+            _initialized = True
         except Exception as e:
             logger.critical(f"Failed to initialize application: {e}")
             import traceback

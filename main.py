@@ -90,6 +90,21 @@ REQUEST_TIMEOUT_SEC = 300
 FILE_HASH_MAX_TIME_SEC = 120
 
 # ============================================================================
+# SERVERLESS DETECTION
+# ============================================================================
+
+def is_serverless_environment():
+    """Detect if running on a serverless platform."""
+    return bool(
+        os.environ.get("VERCEL") or 
+        os.environ.get("DYNO") or 
+        os.environ.get("RAILWAY_ENVIRONMENT_NAME") or
+        os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or
+        os.environ.get("K_SERVICE") or
+        os.environ.get("RENDER_INSTANCE_ID")
+    )
+
+# ============================================================================
 # LOGGING SETUP
 # ============================================================================
 
@@ -231,29 +246,27 @@ def parse_database_url(database_url):
         return None
     
     try:
-        # Handle custom cloudinary:// format by replacing it
+        # Handle custom cloudinary:// format by returning None without error
         if database_url.startswith('cloudinary://'):
+            logger.debug("parse_database_url: Skipping Cloudinary URL (not a database URL)")
             return None
         
         # Normalize postgresql:// to postgres://
         if database_url.startswith('postgresql://'):
-            database_url = 'postgres' + database_url[12:]
+            database_url = database_url.replace('postgresql://', 'postgres://', 1)
         
         # Parse the URL
         parsed = urlparse(database_url)
         
-        # Build connection string with SSL support for serverless (Vercel, Heroku, etc.)
-        is_serverless = os.environ.get("VERCEL") or os.environ.get("DYNO") or os.environ.get("RAILWAY_ENVIRONMENT_NAME")
-        
         # For serverless or production, enforce SSL
-        if is_serverless or os.environ.get("ENVIRONMENT") == "production":
+        if is_serverless_environment() or os.environ.get("ENVIRONMENT") == "production":
             # Vercel and other serverless platforms require SSL
             if "sslmode=" not in database_url:
                 if "?" in database_url:
                     database_url = database_url + "&sslmode=require"
                 else:
                     database_url = database_url + "?sslmode=require"
-            logger.info("[INFO] Enabling SSL for PostgreSQL (serverless environment detected)")
+            logger.debug("Enabled SSL for PostgreSQL (serverless environment detected)")
         
         return database_url
     
@@ -271,15 +284,14 @@ def init_db_pool():
             parsed_db_url = parse_database_url(Config.DATABASE_URL)
             if not parsed_db_url:
                 use_postgres = False
-                logger.info("[OK] Using SQLite for metadata")
+                logger.info("Using SQLite for metadata")
                 return
             
             # For serverless environments, use smaller connection pool
-            is_serverless = os.environ.get("VERCEL") or os.environ.get("DYNO") or os.environ.get("RAILWAY_ENVIRONMENT_NAME")
             min_size = 1
-            max_size = 2 if is_serverless else Config.DB_POOL_MAX
+            max_size = 2 if is_serverless_environment() else Config.DB_POOL_MAX
             
-            logger.info(f"[INFO] Initializing PostgreSQL pool (min={min_size}, max={max_size}, serverless={bool(is_serverless)})...")
+            logger.info(f"Initializing PostgreSQL pool (min={min_size}, max={max_size}, serverless={is_serverless_environment()})...")
             
             # Try to initialize connection pool with retry logic
             max_retries = 3
@@ -294,45 +306,45 @@ def init_db_pool():
                         connect_timeout=10
                     )
                     use_postgres = True
-                    logger.info("[OK] PostgreSQL connection pool initialized successfully")
+                    logger.info("PostgreSQL connection pool initialized successfully")
                     return
                 
                 except psycopg2.OperationalError as e:
                     error_msg = str(e)
-                    logger.warning(f"[WARN] PostgreSQL connection attempt {attempt + 1}/{max_retries} failed: {error_msg}")
+                    logger.warning(f"PostgreSQL connection attempt {attempt + 1}/{max_retries} failed: {error_msg}")
                     
                     # Check for common errors
                     if "timeout" in error_msg.lower():
-                        logger.error("[ERROR] PostgreSQL connection timeout - check DATABASE_URL and network connectivity")
+                        logger.error("PostgreSQL connection timeout - check DATABASE_URL and network connectivity")
                     elif "password" in error_msg.lower():
-                        logger.error("[ERROR] PostgreSQL authentication failed - check database credentials")
+                        logger.error("PostgreSQL authentication failed - check database credentials")
                     elif "does not exist" in error_msg.lower():
-                        logger.error("[ERROR] PostgreSQL database does not exist")
+                        logger.error("PostgreSQL database does not exist")
                     elif "ssl" in error_msg.lower() or "certificate" in error_msg.lower():
-                        logger.error("[ERROR] PostgreSQL SSL error - the host may require SSL connections")
+                        logger.error("PostgreSQL SSL error - the host may require SSL connections")
                     
                     if attempt < max_retries - 1:
-                        logger.info(f"[INFO] Retrying in {retry_delay} seconds...")
+                        logger.info(f"Retrying in {retry_delay} seconds...")
                         time.sleep(retry_delay)
                         retry_delay *= 2
                     else:
-                        logger.error("[ERROR] PostgreSQL connection failed after all retries - falling back to SQLite")
+                        logger.error("PostgreSQL connection failed after all retries - falling back to SQLite")
                         use_postgres = False
                         return
                 
                 except Exception as e:
-                    logger.error(f"[ERROR] Failed to initialize PostgreSQL pool: {type(e).__name__}: {e}")
+                    logger.error(f"Failed to initialize PostgreSQL pool: {type(e).__name__}: {e}")
                     use_postgres = False
                     return
         
         except Exception as e:
-            logger.error(f"[ERROR] Unexpected error during database pool initialization: {e}")
+            logger.error(f"Unexpected error during database pool initialization: {e}")
             use_postgres = False
     else:
         use_postgres = False
     
     if not use_postgres:
-        logger.info("[OK] Using SQLite for metadata")
+        logger.info("Using SQLite for metadata")
 
 def close_db_pool():
     """Close database connection pool gracefully."""
@@ -500,21 +512,21 @@ def setup_cloudinary():
     
     try:
         if not cloudinary_url.startswith("cloudinary://"):
-            logger.error("[ERROR] CLOUDINARY_URL format invalid - expected cloudinary://api_key:api_secret@cloud_name")
+            logger.error("CLOUDINARY_URL format invalid - expected cloudinary://api_key:api_secret@cloud_name")
             return False
         
         # Parse credentials
-        cloudinary_url_parsed = cloudinary_url.replace("cloudinary://", "")
+        cloudinary_url_without_scheme = cloudinary_url.replace("cloudinary://", "")
         try:
-            credentials, cloud_name = cloudinary_url_parsed.rsplit("@", 1)
+            credentials, cloud_name = cloudinary_url_without_scheme.rsplit("@", 1)
             api_key, api_secret = credentials.split(":", 1)
         except ValueError:
-            logger.error("[ERROR] CLOUDINARY_URL format invalid - could not parse credentials")
+            logger.error("CLOUDINARY_URL format invalid - could not parse credentials")
             return False
         
         # Validate that we have all required fields
         if not cloud_name or not api_key or not api_secret:
-            logger.error("[ERROR] CLOUDINARY_URL missing required fields (api_key, api_secret, or cloud_name)")
+            logger.error("CLOUDINARY_URL missing required fields (api_key, api_secret, or cloud_name)")
             return False
         
         # Configure Cloudinary
@@ -525,7 +537,7 @@ def setup_cloudinary():
             secure=True
         )
         
-        logger.info(f"[INFO] Cloudinary configured for cloud: {cloud_name}")
+        logger.info(f"Cloudinary configured for cloud: {cloud_name}")
         
         # Test connection with retry logic
         max_retries = 3
@@ -535,20 +547,20 @@ def setup_cloudinary():
             try:
                 if verify_cloudinary_connection():
                     cloudinary_configured = True
-                    logger.info("[OK] Cloudinary configured and verified successfully")
+                    logger.info("Cloudinary configured and verified successfully")
                     return True
             except Exception as e:
-                logger.warning(f"[WARN] Cloudinary connection attempt {attempt + 1}/{max_retries} failed: {e}")
+                logger.warning(f"Cloudinary connection attempt {attempt + 1}/{max_retries} failed: {e}")
                 if attempt < max_retries - 1:
-                    logger.info(f"[INFO] Retrying in {retry_delay} seconds...")
+                    logger.info(f"Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                     retry_delay *= 2
         
-        logger.error("[ERROR] Cloudinary connection verification failed after all retries - check credentials and network connectivity")
+        logger.error("Cloudinary connection verification failed after all retries - check credentials and network connectivity")
         return False
     
     except Exception as e:
-        logger.error(f"[ERROR] Cloudinary configuration failed: {type(e).__name__}: {e}")
+        logger.error(f"Cloudinary configuration failed: {type(e).__name__}: {e}")
         return False
 
 def verify_cloudinary_connection():

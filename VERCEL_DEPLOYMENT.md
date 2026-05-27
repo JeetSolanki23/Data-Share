@@ -209,7 +209,7 @@ This is usually due to environment variable issues. Verify:
 **Test connection:**
 ```bash
 # From Vercel CLI
-vercel exec "python -c 'import psycopg2; conn = psycopg2.connect(\"<DATABASE_URL>\"); print(conn.cursor().execute(\"SELECT 1\")); conn.close()'"
+vercel exec "python -c 'import psycopg2; conn = psycopg2.connect(\"<DATABASE_URL>\"); cursor = conn.cursor(); cursor.execute(\"SELECT 1\"); print(\"Connection successful:\", cursor.fetchone()); conn.close()'"
 ```
 
 ### Storage quota errors
