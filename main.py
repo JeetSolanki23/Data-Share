@@ -1233,6 +1233,18 @@ def status():
         'timestamp': datetime.now().isoformat()
     })
 
+@app.route('/debug')
+def debug():
+    """debug endpoint."""
+    return jsonify({
+        'status': 'running',
+        "db": Config.DATABASE_URL,
+        "dbe": os.environ.get("DATABASE_URL"),
+        'cloudinary': os.environ.get("CLOUDINARY_URL"),
+        'storage_mode': 'cloud' if cloudinary_configured else 'local',
+        'timestamp': datetime.now().isoformat()
+    })
+
 # ============================================================================
 # ERROR HANDLERS
 # ============================================================================
