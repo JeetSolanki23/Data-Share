@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 
 # Global state
 cloudinary_configured = False
+cloudinary_folder = None  # Folder to organize uploads
 
 
 def setup_cloudinary():
     """Configure Cloudinary with validation."""
-    global cloudinary_configured
+    global cloudinary_configured, cloudinary_folder
     
     if not CLOUDINARY_AVAILABLE:
         logger.warning("Cloudinary library not available")
@@ -29,6 +30,11 @@ def setup_cloudinary():
     if not cloudinary_url:
         logger.info("CLOUDINARY_URL not set - using local storage only")
         return False
+    
+    # Get storage folder from environment
+    storage_dir = os.environ.get("STORAGE_DIR", "storage")
+    # Extract folder name from path (e.g., "./storage" -> "storage")
+    cloudinary_folder = Path(storage_dir).name
     
     try:
         if not cloudinary_url.startswith("cloudinary://"):
@@ -49,7 +55,7 @@ def setup_cloudinary():
         # Test connection
         if verify_cloudinary_connection():
             cloudinary_configured = True
-            logger.info("[OK] Cloudinary configured successfully")
+            logger.info(f"[OK] Cloudinary configured successfully (folder: {cloudinary_folder})")
             return True
         else:
             logger.error("Cloudinary connection test failed")
@@ -93,9 +99,11 @@ def upload_file_to_cloudinary(file_or_path, filename):
             file_or_path.seek(0)
             upload_source = file_or_path
         
+        # Upload with folder organization
         upload_result = cloudinary.uploader.upload(
             upload_source,
             resource_type="raw",
+            folder=cloudinary_folder,  # Organize in STORAGE_DIR folder
             public_id=filename,
             overwrite=True,
             timeout=60

@@ -77,7 +77,9 @@ def register_file_routes(app):
                 return redirect(file_info['cloudinary_url'] + '?dl=true')
             else:
                 logger.info(f"Download from local storage: {safe_name}")
-                return send_from_directory(Config.STORAGE_DIR, safe_name, as_attachment=True)
+                # Use absolute path for send_from_directory
+                storage_path = str(Config.STORAGE_DIR.resolve())
+                return send_from_directory(storage_path, safe_name, as_attachment=True)
         except Exception as e:
             logger.error(f"Download error for {safe_name}: {e}")
             flash("Error downloading file.", "error")
