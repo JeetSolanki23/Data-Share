@@ -24,3 +24,5 @@ idea.txt
 .pytest_cache/
 test_*.txt
 run_tests.py
+.vercel
+.env*

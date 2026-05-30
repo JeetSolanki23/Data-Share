@@ -1,6 +1,9 @@
 import io
 import pytest
-from main import Config, update_hash_cache, get_total_storage_usage, is_file_allowed
+from app.config import Config
+from app.database import update_hash_cache
+from app.utils.helpers import get_total_storage_usage
+from app.utils.validators import is_file_allowed
 import re
 
 def test_dashboard_route(client):
@@ -101,14 +104,6 @@ def test_health_check_endpoint(client, test_app):
     assert 'status' in data
     assert 'storage' in data
     assert 'database' in data
-
-def test_status_endpoint(client, test_app):
-    """Verifies legacy status endpoint."""
-    response = client.get('/status')
-    assert response.status_code == 200
-    data = response.get_json()
-    assert 'status' in data
-    assert 'cloudinary' in data
 
 def test_download_nonexistent_file(client, test_app):
     """Verifies downloading nonexistent files fails gracefully."""

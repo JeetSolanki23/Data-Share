@@ -1,5 +1,6 @@
 import io
-from main import get_file_hash, get_next_file_number, Config
+from app.utils.helpers import get_file_hash, get_next_file_number
+from app.config import Config
 
 def test_get_file_hash():
     """Verifies SHA-256 hash calculation."""

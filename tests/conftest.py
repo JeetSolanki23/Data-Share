@@ -2,7 +2,9 @@ import pytest
 import os
 import shutil
 from pathlib import Path
-from main import app, Config, init_db
+from app import create_app
+from app.config import Config
+from app.database import init_db
 
 @pytest.fixture
 def test_app():
@@ -20,6 +22,7 @@ def test_app():
     Config.TESTING = True
     os.environ["TESTING"] = "True"
     
+    app = create_app()
     app.config.update({
         "TESTING": True,
         "SECRET_KEY": "test-secret",
