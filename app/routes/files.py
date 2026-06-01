@@ -73,8 +73,11 @@ def register_file_routes(app):
         
         try:
             if is_cloudinary_enabled() and file_info.get('cloudinary_url'):
-                logger.info(f"Download redirecting to Cloudinary: {safe_name}")
-                return redirect(file_info['cloudinary_url'] + '?dl=true')
+                logger.info(f"Download from Cloudinary: {safe_name}")
+                # Use Cloudinary's fl_attachment flag for force-download behavior
+                # Insert fl_attachment into the URL before the file path
+                download_url = file_info['cloudinary_url'].replace('/upload/', '/upload/fl_attachment/')
+                return redirect(download_url)
             else:
                 logger.info(f"Download from local storage: {safe_name}")
                 # Use absolute path for send_from_directory

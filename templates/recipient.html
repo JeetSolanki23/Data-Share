@@ -322,15 +322,8 @@
     </section>
 </main>
 
-{% if is_image and file.download_url %}
-<!-- Fullscreen image lightbox -->
-<div class="rp-image-fullscreen" id="lightbox">
-    <button class="close-btn" id="closeLightbox" aria-label="Close preview">✕</button>
-    <img src="{{ file.download_url }}" alt="{{ file.name }}">
-</div>
-
 <script>
-// Theme Toggle
+// Theme Toggle - ALWAYS RUN regardless of preview availability
 (function() {
     const themeToggle = document.getElementById('themeToggle');
     const htmlElement = document.documentElement;
@@ -363,6 +356,13 @@
     }
 })();
 </script>
+
+{% if is_image and file.download_url %}
+<!-- Fullscreen image lightbox -->
+<div class="rp-image-fullscreen" id="lightbox">
+    <button class="close-btn" id="closeLightbox" aria-label="Close preview">✕</button>
+    <img src="{{ file.download_url }}" alt="{{ file.name }}">
+</div>
 
 <script>
 (function () {
