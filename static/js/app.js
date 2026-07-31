@@ -30,6 +30,8 @@ const actualInput = document.getElementById('actualInput');
 const uploadForm = document.getElementById('uploadForm');
 
 let staged = [];
+let autoUploadTimer = null;
+let isUploading = false;
 
 function formatSize(bytes) {
     if (bytes < 1024) {
@@ -49,15 +51,35 @@ function fileExt(name) {
     return parts.length > 1 ? parts.pop().toUpperCase().slice(0, 4) : 'FILE';
 }
 
+function submitStagedFiles() {
+    if (isUploading || !staged.length || !actualInput || !uploadForm) {
+        return;
+    }
+
+    isUploading = true;
+    const dataTransfer = new DataTransfer();
+    staged.forEach((file) => dataTransfer.items.add(file));
+    actualInput.files = dataTransfer.files;
+    uploadForm.submit();
+}
+
 function renderStaging() {
     stagingList.innerHTML = '';
 
     if (!staged.length) {
         stagingArea.style.display = 'none';
+        document.querySelector('.app-tabs')?.classList.remove('show');
+        document.querySelector('.app-storage-row')?.classList.remove('show');
+        window.clearTimeout(autoUploadTimer);
+        autoUploadTimer = null;
+        isUploading = false;
         return;
     }
 
     stagingArea.style.display = 'block';
+    document.querySelector('.app-tabs')?.classList.add('show');
+    document.querySelector('.app-storage-row')?.classList.add('show');
+    
     stagingCount.textContent = `${staged.length} ${staged.length === 1 ? 'file' : 'files'}`;
     const totalSize = staged.reduce((sum, file) => sum + file.size, 0);
     stagingTotal.textContent = `Total: ${formatSize(totalSize)}`;
@@ -89,6 +111,10 @@ function addFiles(files) {
         }
     });
     renderStaging();
+    if (staged.length) {
+        window.clearTimeout(autoUploadTimer);
+        autoUploadTimer = window.setTimeout(submitStagedFiles, 150);
+    }
 }
 
 if (fileInput) {
@@ -125,11 +151,11 @@ if (dropZone) {
     });
 
     ['dragenter', 'dragover'].forEach((eventName) => {
-        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragging'));
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'));
     });
 
     ['dragleave', 'drop'].forEach((eventName) => {
-        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragging'));
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'));
     });
 
     dropZone.addEventListener('drop', (event) => {
@@ -141,6 +167,8 @@ if (dropZone) {
 const searchInput = document.getElementById('searchInput');
 const sortSelect = document.getElementById('sortSelect');
 const fileList = document.getElementById('fileList');
+const seeMoreBtn = document.getElementById('seeMoreBtn');
+let fileListExpanded = false;
 
 function parseSize(sizeText) {
     const match = String(sizeText).trim().match(/^([\d.]+)\s*(B|KB|MB|GB)$/i);
@@ -200,6 +228,22 @@ function applyFileFilterSort() {
     });
 
     sorted.forEach((item) => fileList.appendChild(item));
+    applyFilePreviewState();
+}
+
+function applyFilePreviewState() {
+    if (!fileList) {
+        return;
+    }
+
+    const items = Array.from(fileList.querySelectorAll('.file-item'));
+    items.forEach((item, index) => {
+        item.classList.toggle('preview-hidden', !fileListExpanded && index >= 2);
+    });
+
+    if (seeMoreBtn) {
+        seeMoreBtn.hidden = fileListExpanded || items.length <= 2;
+    }
 }
 
 if (searchInput) {
@@ -209,6 +253,13 @@ if (searchInput) {
 if (sortSelect) {
     sortSelect.addEventListener('change', applyFileFilterSort);
     applyFileFilterSort();
+}
+
+if (seeMoreBtn) {
+    seeMoreBtn.addEventListener('click', () => {
+        fileListExpanded = true;
+        applyFilePreviewState();
+    });
 }
 
 // Copy links

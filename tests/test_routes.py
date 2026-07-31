@@ -12,6 +12,25 @@ def test_dashboard_route(client):
     assert response.status_code == 200
     assert b"Data Share" in response.data
 
+def test_large_upload_redirects_to_dashboard(client, test_app):
+    """Verifies oversized uploads redirect back to the dashboard normally."""
+    previous_limit = Config.MAX_CONTENT_LENGTH
+    Config.MAX_CONTENT_LENGTH = 1
+    test_app.config["MAX_CONTENT_LENGTH"] = 1
+
+    try:
+        response = client.post(
+            '/upload',
+            data={'file': (io.BytesIO(b"ab"), "large.txt")},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith('/')
+    finally:
+        Config.MAX_CONTENT_LENGTH = previous_limit
+        test_app.config["MAX_CONTENT_LENGTH"] = previous_limit
+
 def test_upload_deduplication(client, test_app):
     """Verifies identical files are not uploaded twice."""
     filename = "test.txt"

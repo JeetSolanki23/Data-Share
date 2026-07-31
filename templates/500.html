@@ -3,46 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Error</title>
+    <title>FileFlow — Server Error</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fileflow.css') }}">
     <style>
-        .error-container {
+        .error-shell {
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            padding: 24px;
+            padding: 40px 24px;
+            text-align: center;
+        }
+        .error-topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--line);
+            background: var(--bg);
+            z-index: 100;
         }
         .error-code {
-            font-size: 128px;
+            font-size: clamp(80px, 18vw, 140px);
             font-weight: 700;
-            color: var(--accent);
             line-height: 1;
+            color: var(--accent);
+            letter-spacing: -0.04em;
+            margin-bottom: 12px;
+        }
+        .error-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 13px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--surface-strong);
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: 'DM Mono', monospace;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+        }
+        .error-eyebrow-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #ef4444;
         }
         .error-title {
-            font-size: 32px;
+            font-size: clamp(22px, 5vw, 32px);
             font-weight: 600;
-            margin: 16px 0 8px;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            margin: 0 0 12px;
         }
         .error-message {
-            font-size: 16px;
+            font-size: 1rem;
             color: var(--muted);
-            margin-bottom: 32px;
-            text-align: center;
-            max-width: 400px;
+            max-width: 380px;
+            line-height: 1.65;
+            margin: 0 auto 36px;
         }
-        .error-action {
-            display: inline-block;
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .error-divider {
+            width: 40px;
+            height: 1px;
+            background: var(--line);
+            margin: 32px auto;
+        }
+        .error-hint {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+        }
+        @media (max-width: 480px) {
+            .error-actions { flex-direction: column; align-items: stretch; }
+            .error-actions .btn-primary,
+            .error-actions .btn-outline { justify-content: center; }
         }
     </style>
 </head>
 <body>
-<div class="error-container">
-    <div class="error-code">500</div>
-    <h1 class="error-title">Server Error</h1>
-    <p class="error-message">Something went wrong on our end. Our team has been notified. Please try again later.</p>
-    <a href="{{ url_for('dashboard') }}" class="btn-primary error-action">Return to Dashboard</a>
+
+<div class="error-topbar">
+    <a href="{{ url_for('dashboard') }}" class="nav-logo">
+        <div class="logo-mark">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
+                <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <span class="logo-copy">
+            <span class="logo-text">FileFlow</span>
+            <span class="logo-subtext">Data Share</span>
+        </span>
+    </a>
 </div>
+
+<div class="error-shell">
+    <div class="error-eyebrow">
+        <span class="error-eyebrow-dot"></span>
+        HTTP 500
+    </div>
+    <div class="error-code">500</div>
+    <h1 class="error-title">Something went wrong on our end.</h1>
+    <p class="error-message">An unexpected error occurred while processing your request. Our team has been notified — please try again in a moment.</p>
+    <div class="error-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back to dashboard
+        </a>
+        <a href="javascript:location.reload()" class="btn-outline">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 8 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 1v4h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Try again
+        </a>
+    </div>
+    <div class="error-divider"></div>
+    <p class="error-hint">If this keeps happening, check back soon.</p>
+</div>
+
+<script>
+(function() {
+    const htmlElement = document.documentElement;
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    if (currentTheme === 'dark') htmlElement.classList.add('dark-mode');
+    if (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        htmlElement.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    }
+})();
+</script>
+
 </body>
 </html>

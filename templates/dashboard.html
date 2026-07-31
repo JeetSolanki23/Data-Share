@@ -3,149 +3,465 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileFlow — Secure File Exchange</title>
+    <title>FileFlow — Data Share</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fileflow.css') }}">
+    <style>
+        /* ─── Apple-style HIG Overrides ─── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background: #F4F5F7;
+            color: #1D1D1F;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* NAV */
+        .topnav {
+            position: relative;
+            z-index: 100;
+            background: transparent;
+            height: 64px;
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 32px;
+            height: 100%;
+            border-bottom: 1.5px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+        .nav-logo {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            text-decoration: none;
+            color: #1D1D1F;
+        }
+        .nav-logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .nav-logo-sub {
+            font-size: 14px;
+            font-weight: 400;
+            color: #86868B;
+        }
+        
+        .nav-links {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+        .nav-link {
+            font-size: 13px;
+            color: #86868B;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+            transition: color 0.15s;
+        }
+        .nav-link:hover { color: #1D1D1F; }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+        }
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #86868B;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle:hover { color: #1D1D1F; }
+        .theme-toggle:active { transform: scale(0.9); }
+
+        /* FLASH */
+        .flash-wrap {
+            position: fixed;
+            top: 84px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(600px, calc(100vw - 48px));
+            z-index: 1400;
+        }
+        .flashes { list-style: none; }
+        .flash {
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+        }
+        .flash.error { color: #FF3B30; }
+        .flash.success { color: #34C759; }
+
+        /* HERO - Tightened spacing */
+        .app-section {
+            padding: 40px 16px 32px;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .section-inner {
+            max-width: 640px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .hero-headline { text-align: center; margin-bottom: 32px; }
+        .hero-title {
+            font-size: clamp(40px, 6vw, 56px); /* Scaled down slightly */
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            color: #1D1D1F;
+            line-height: 1.05;
+            margin-bottom: 8px;
+        }
+        .hero-sub { font-size: 16px; color: #86868B; letter-spacing: -0.01em; font-weight: 400; }
+
+        /* APP SHELL */
+        .app-shell {
+            background: #FFFFFF;
+            border-radius: 24px;
+            border: 0.5px solid rgba(0, 0, 0, 0.04);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* PANELS */
+        .app-panel { display: none; flex: 1; }
+        .app-panel.active { display: block; }
+        
+        /* 1. DROP ZONE PANEL */
+        #panel-upload { padding: 56px 32px; }
+        .drop-zone { cursor: pointer; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .dz-icon-wrap {
+            width: 56px;
+            height: 56px;
+            background: #F0F5FF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .dz-title { font-size: 18px; font-weight: 600; color: #1D1D1F; letter-spacing: -0.02em; margin-bottom: 16px; }
+        .dz-choose-btn {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1D1D1F;
+            background: #FFFFFF;
+            border: 0.5px solid rgba(0, 0, 0, 0.15);
+            padding: 10px 24px;
+            border-radius: 999px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+        }
+        .dz-choose-btn:hover { background: #F9F9FB; border-color: rgba(0, 0, 0, 0.2); }
+        .dz-choose-btn:active { transform: scale(0.96); }
+
+        /* 2. PROGRESS PANEL */
+        #panel-progress {
+            display: none; padding: 56px 32px; text-align: center; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .progress-ring-container { position: relative; width: 72px; height: 72px; margin: 0 auto 20px; }
+        .progress-ring-circle { transition: stroke-dashoffset 0.1s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .progress-percentage {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 15px; font-weight: 600; color: #1D1D1F; font-variant-numeric: tabular-nums;
+        }
+        .progress-title { font-size: 18px; font-weight: 600; color: #1D1D1F; letter-spacing: -0.02em; margin-bottom: 6px; }
+        .progress-sub { font-size: 13px; color: #86868B; }
+
+        /* 3. SUCCESS PANEL - Tighter Apple Spacing */
+        #panel-success { padding: 36px 32px; background: #FFFFFF; display: none; }
+        .success-header { text-align: center; margin-bottom: 24px; }
+        .success-icon-large {
+            width: 48px; height: 48px; background: #34C759; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: white; box-shadow: 0 8px 24px rgba(52, 199, 89, 0.25);
+        }
+        /* Scale down the checkmark SVG to fit the smaller circle */
+        .success-icon-large svg { width: 24px; height: 24px; }
+        
+        .success-header h2 { font-size: 22px; font-weight: 700; color: #1D1D1F; letter-spacing: -0.03em; margin-bottom: 4px; }
+        .success-header p { font-size: 14px; color: #86868B; }
+        
+        .success-card { background: #F5F5F7; border-radius: 16px; padding: 20px; }
+        .sc-file-info { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .sc-icon { width: 44px; height: 44px; background: #E5E5EA; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #1D1D1F; font-weight: 600; font-size: 11px; }
+        .sc-details { flex: 1; }
+        .sc-name { font-size: 15px; font-weight: 500; color: #1D1D1F; margin-bottom: 2px; }
+        .sc-size { font-size: 13px; color: #86868B; }
+
+        .sc-link-box { background: #FFFFFF; border-radius: 10px; padding: 4px 4px 4px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border: 0.5px solid rgba(0,0,0,0.06); }
+        .sc-link-text { font-size: 14px; color: #007AFF; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px;}
+        .sc-copy-btn { background: #FFFFFF; border: 0.5px solid rgba(0,0,0,0.1); padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; color: #1D1D1F; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.02); transition: all 0.2s ease; flex-shrink: 0;}
+        .sc-copy-btn:active { transform: scale(0.95); }
+
+        .sc-actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 16px; }
+        .sc-action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; background: #FFFFFF; border: 0.5px solid rgba(0,0,0,0.08); border-radius: 10px; font-size: 13px; font-weight: 500; color: #1D1D1F; cursor: pointer; transition: background 0.2s; }
+        .sc-action-btn:hover { background: #F9F9FB; }
+        .sc-action-btn svg { width: 14px; height: 14px; } /* Slightly smaller icons */
+
+        .sc-footer { text-align: center; font-size: 12px; color: #86868B; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+        /* 4. FILES LIST PANEL */
+        #panel-files { padding: 0; }
+        .files-toolbar { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 0.5px solid rgba(0,0,0,0.05); background: transparent; }
+        .search-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.04); border-radius: 10px; padding: 8px 12px; color: #86868B; }
+        .search-wrap input { flex: 1; border: none; background: transparent; font-size: 14px; color: #1D1D1F; outline: none; }
+        .search-wrap input::placeholder { color: #86868B; }
+        .sort-select { appearance: none; background: rgba(0,0,0,0.04); border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 500; color: #1D1D1F; cursor: pointer; outline: none; min-height: 36px; }
+        
+        .file-list { list-style: none; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .file-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; transition: background 0.2s ease; }
+        .file-item:hover { background: #F5F5F7; }
+        .file-item.preview-hidden { display: none; }
+        .fi-icon { width: 40px; height: 40px; border-radius: 10px; background: #F5F5F7; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: #86868B; flex-shrink: 0; }
+        
+        .pdf-type { background: #FFF0F0; color: #FF3B30; }
+        .jpg-type, .jpeg-type, .png-type, .gif-type, .webp-type, .svg-type { background: #F0F5FF; color: #007AFF; }
+        .zip-type, .rar-type, .tar-type { background: #FFF8E6; color: #FF9500; }
+        .mp4-type, .mov-type, .avi-type { background: #F4F0FF; color: #AF52DE; }
+
+        .fi-info { flex: 1; min-width: 0; }
+        .fi-name { display: block; font-size: 15px; font-weight: 500; color: #1D1D1F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
+        .fi-meta { display: block; font-size: 13px; color: #86868B; margin-top: 2px; }
+        .fi-actions { display: flex; gap: 4px; }
+        .fi-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: #007AFF; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
+        .fi-btn:hover { background: #E8E8ED; }
+        .fi-btn:active { transform: scale(0.9); }
+        
+        .empty-files-state { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; color: #86868B; font-size: 14px; text-align: center; }
+
+        .files-more { padding: 8px 16px 20px; }
+        .files-more-btn { width: 100%; background: transparent; color: #007AFF; border: none; padding: 12px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .files-more-btn:active { opacity: 0.6; }
+
+        /* FOOTER */
+        .site-footer { background: transparent; padding: 24px 32px 32px; margin-top: auto; border-top: 1.5px solid rgba(0,0,0,0.05); flex-shrink: 0; text-align: center; }
+        .footer-logo { font-size: 14px; font-weight: 600; color: #1D1D1F; letter-spacing: -0.02em; margin-bottom: 4px; }
+        .footer-tagline { font-size: 13px; color: #86868B; }
+
+        /* TOAST */
+        .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1D1D1F; color: #fff; font-size: 14px; padding: 10px 20px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 9999; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* DARK MODE */
+        html.dark-mode body { background: #000000; color: #F5F5F7; }
+        html.dark-mode .nav-logo-text { color: #FFFFFF; }
+        html.dark-mode .nav-link:hover, html.dark-mode .theme-toggle:hover { color: #FFFFFF; }
+        html.dark-mode .hero-title { color: #FFFFFF; }
+        
+        html.dark-mode .app-shell { background: #1C1C1E; border-color: rgba(255,255,255,0.1); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4); }
+        html.dark-mode .dz-icon-wrap { background: rgba(10, 132, 255, 0.15); }
+        html.dark-mode .dz-title, html.dark-mode .progress-title, html.dark-mode .progress-percentage { color: #FFFFFF; }
+        html.dark-mode .dz-choose-btn { background: #1C1C1E; color: #FFFFFF; border-color: rgba(255,255,255,0.2); }
+        html.dark-mode .dz-choose-btn:hover { background: #2C2C2E; }
+        
+        html.dark-mode #panel-success { background: #1C1C1E; }
+        html.dark-mode .success-header h2 { color: #FFFFFF; }
+        html.dark-mode .success-card { background: #2C2C2E; }
+        html.dark-mode .sc-name { color: #FFFFFF; }
+        html.dark-mode .sc-icon { background: #3A3A3C; color: #FFFFFF; }
+        html.dark-mode .sc-link-box { background: #1C1C1E; border-color: rgba(255,255,255,0.1); }
+        html.dark-mode .sc-copy-btn, html.dark-mode .sc-action-btn { background: #3A3A3C; color: #FFFFFF; border-color: rgba(255,255,255,0.1); }
+        html.dark-mode .sc-action-btn:hover { background: #48484A; }
+
+        html.dark-mode .files-toolbar { border-color: rgba(255,255,255,0.05); }
+        html.dark-mode .search-wrap, html.dark-mode .sort-select { background: #2C2C2E; color: #FFFFFF; }
+        html.dark-mode .search-wrap input { color: #FFFFFF; }
+        html.dark-mode .file-item:hover { background: #2C2C2E; }
+        html.dark-mode .fi-name { color: #FFFFFF; }
+        html.dark-mode .fi-icon { background: #2C2C2E; }
+        html.dark-mode .fi-btn:hover { background: #3A3A3C; }
+
+        html.dark-mode .footer-logo { color: #FFFFFF; }
+
+        /* Responsive Layout Overrides */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero-title { font-size: 36px; }
+            .dz-choose-btn { width: 100%; max-width: 240px; }
+        }
+    </style>
 </head>
 <body>
 
 <nav class="topnav">
     <div class="nav-inner">
         <a href="#app" class="nav-logo">
-            <div class="logo-mark">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
-                    <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <span class="logo-copy">
-                <span class="logo-text">FileFlow</span>
-                <span class="logo-subtext">Data Share</span>
-            </span>
+            <span class="nav-logo-text">FileFlow</span>
+            <span class="nav-logo-sub">by Acenet</span>
         </a>
 
         <div class="nav-links">
-            <a href="#app" class="nav-link">Upload</a>
-            <a href="#features" class="nav-link">Features</a>
+            <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
+            <a href="#" class="nav-link">Privacy</a>
+            <a href="#" class="nav-link">Support</a>
         </div>
 
         <div class="nav-actions">
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
                 <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="5"></circle>
-                    <line x1="12" y1="1" x2="12" y2="3"></line>
-                    <line x1="12" y1="21" x2="12" y2="23"></line>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                    <line x1="1" y1="12" x2="3" y2="12"></line>
-                    <line x1="21" y1="12" x2="23" y2="12"></line>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                 </svg>
-                <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
             </button>
-            <a href="#app" class="btn-nav-cta">Upload a file</a>
         </div>
-
-        <button class="nav-hamburger" id="navToggle" aria-label="Menu">
-            <span></span><span></span><span></span>
-        </button>
     </div>
 </nav>
 
+{% set flash_data = namespace(success_messages=[], other_messages=[]) %}
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-  <div class="flash-wrap">
-      <ul class="flashes">
-      {% for category, message in messages %}
-        <li class="flash {{ category }}">{{ message }}</li>
-      {% endfor %}
-      </ul>
-  </div>
-  {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+        {% if category == 'success' %}
+            {% set flash_data.success_messages = flash_data.success_messages + [message] %}
+        {% else %}
+            {% set flash_data.other_messages = flash_data.other_messages + [(category, message)] %}
+        {% endif %}
+    {% endfor %}
+    {% if flash_data.other_messages %}
+    <div class="flash-wrap">
+            <ul class="flashes">
+            {% for category, message in flash_data.other_messages %}
+                <li class="flash {{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+    </div>
+    {% endif %}
+    {% endif %}
 {% endwith %}
 
-<!-- HERO / APP SECTION — combined so the app IS the hero -->
 <section id="app" class="app-section">
     <div class="section-inner">
 
         <div class="hero-headline">
-            <h1 class="hero-title">Share files,<br><em>not links.</em></h1>
-            <p class="hero-sub">Drop anything here and get a clean, token-based share link instantly. No accounts required for recipients.</p>
+            <h1 class="hero-title">FileFlow.</h1>
+            <p class="hero-sub">Drop a file. Get a link. Done.</p>
         </div>
 
         <div class="app-shell">
-            <div class="app-storage-row">
-                <div class="storage-info">
-                    <span class="storage-label">Storage</span>
-                    <span class="storage-used">{{ storage.used }} of {{ storage.total }}</span>
-                </div>
-                <div class="storage-meter">
-                    {% if not storage.is_unlimited %}
-                    <div class="storage-bar-wrap" aria-label="Storage usage progress">
-                        <div class="storage-bar-fill" style="width: {{ storage.percent }}%;"></div>
-                    </div>
-                    <span class="storage-pct">{{ storage.percent | round(1) }}%</span>
-                    {% else %}
-                    <div class="storage-bar-wrap storage-bar-wrap-unlimited" aria-label="Storage usage progress">
-                        <div class="storage-bar-fill" style="width: 100%;"></div>
-                    </div>
-                    <span class="storage-pct">Unlimited</span>
-                    {% endif %}
-                </div>
-            </div>
 
-            <div class="app-tabs">
-                <button class="app-tab active" data-tab="upload">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-                    Upload
-                </button>
-                <button class="app-tab" data-tab="files">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3a1 1 0 011-1h4l1.5 1.5H13a1 1 0 011 1V12a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Files
-                    {% if files %}<span class="tab-count">{{ files|length }}</span>{% endif %}
-                </button>
-            </div>
-
+            <!-- STATE 1: UPLOAD -->
             <div id="panel-upload" class="app-panel active">
                 <div class="drop-zone" id="dropZone">
-                    <div class="dz-inner">
-                        <div class="dz-icon">
-                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M18 6v16M11 13l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 28h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                        </div>
-                        <p class="dz-title">Drop files here</p>
-                        <p class="dz-sub">or <span class="dz-browse">browse from device</span> — stage multiple files, then send together.</p>
-                        <input type="file" id="fileInput" multiple>
+                    <div class="dz-icon-wrap">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                            <path d="M12 12v9"></path>
+                            <path d="m8 16 4-4 4 4"></path>
+                        </svg>
                     </div>
+                    <p class="dz-title">Drop your files here</p>
+                    <button class="dz-choose-btn" type="button" id="chooseTrigger">Choose File</button>
+                    
+                    <form id="uploadForm" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" style="display:none">
+                        <input type="file" name="file" id="fileInput" multiple>
+                    </form>
                 </div>
-
-                <div class="staging" id="stagingArea" style="display:none">
-                    <div class="staging-header">
-                        <div>
-                            <h3>Staged for upload</h3>
-                            <span id="stagingCount">0 files</span>
-                        </div>
-                        <button class="btn-ghost-sm" id="clearAllBtn">Clear all</button>
-                    </div>
-                    <ul class="staging-list" id="stagingList"></ul>
-                    <div class="staging-footer">
-                        <div class="staging-total" id="stagingTotal">Total: 0 KB</div>
-                        <button class="btn-primary" id="uploadBtn">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-                            Upload files
-                        </button>
-                    </div>
-                </div>
-
-                <form id="uploadForm" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" style="display:none">
-                    <input type="file" name="file" id="actualInput" multiple>
-                </form>
             </div>
 
+            <!-- STATE 2: PROGRESS -->
+            <div id="panel-progress" class="app-panel">
+                <div class="progress-ring-container">
+                    <svg width="72" height="72">
+                        <circle cx="36" cy="36" r="32" fill="transparent" stroke="rgba(0,122,255,0.1)" stroke-width="6"/>
+                        <circle id="progressRing" cx="36" cy="36" r="32" fill="transparent" stroke="#007AFF" stroke-width="6" stroke-linecap="round"/>
+                    </svg>
+                    <div class="progress-percentage" id="progressText">0%</div>
+                </div>
+                <h3 class="progress-title">Uploading...</h3>
+                <p class="progress-sub" id="progressFileName">Preparing file</p>
+            </div>
+
+            <!-- STATE 3: SUCCESS -->
+            <div id="panel-success" class="app-panel">
+                <div class="success-header">
+                    <div class="success-icon-large">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <h2>Your link is ready</h2>
+                    <p>Anyone with this link can download the file.</p>
+                </div>
+
+                <div class="success-card">
+                    <div class="sc-file-info">
+                        <div class="sc-icon">EXT</div>
+                        <div class="sc-details">
+                            <div class="sc-name" id="successFileName">File.zip</div>
+                            <div class="sc-size" id="successFileSize">0 MB</div>
+                        </div>
+                    </div>
+
+                    <div class="sc-link-box">
+                        <span class="sc-link-text" id="successLinkBox">Generating link...</span>
+                        <button class="sc-copy-btn" id="successCopyBtn">Copy</button>
+                    </div>
+
+                    <div class="sc-actions">
+                        <button class="sc-action-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                            QR Code
+                        </button>
+                        <button class="sc-action-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            Share
+                        </button>
+                        <button class="sc-action-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            Mail
+                        </button>
+                    </div>
+
+                    <div class="sc-footer">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        Link expires in 7 days · 0 downloads so far
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATE 4: EXISTING FILES LIST -->
             <div id="panel-files" class="app-panel">
                 <div class="files-toolbar">
                     <div class="search-wrap">
@@ -163,7 +479,7 @@
                 <ul class="file-list" id="fileList">
                     {% if files %}
                     {% for file in files %}
-                    <li class="file-item" data-name="{{ file.name }}" data-size="{{ file.size }}" data-mtime="{{ file.mtime }}">
+                    <li class="file-item{% if loop.index > 2 %} preview-hidden{% endif %}" data-name="{{ file.name }}" data-size="{{ file.size }}" data-mtime="{{ file.mtime }}">
                         {% set extension = file.name.rsplit('.', 1)[-1].upper() if '.' in file.name else 'FILE' %}
                         <div class="fi-icon {{ extension|lower }}-type">{{ extension }}</div>
                         <div class="fi-info">
@@ -188,133 +504,172 @@
                     {% endif %}
                 </ul>
 
-                <div class="files-footer">
-                    <span>{{ files|length }} file{% if files|length != 1 %}s{% endif %} shared</span>
-                    <span>Batch limit: {{ max_files }}</span>
+                {% if files|length > 2 %}
+                <div class="files-more">
+                    <button class="files-more-btn" type="button" id="seeMoreBtn">See more</button>
                 </div>
+                {% endif %}
             </div>
-        </div>
-    </div>
-</section>
 
-<section id="features" class="features">
-    <div class="section-inner">
-        <div class="section-label">How it works</div>
-        <h2 class="section-title">Built for real file-sharing workflows.</h2>
-
-        <div class="feature-grid feature-grid-balanced">
-            <div class="feature-card">
-                <div class="fc-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="4" width="20" height="20" rx="4" fill="currentColor" opacity=".12"/><path d="M14 8v8M10 12l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 20h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                </div>
-                <h3>Stage before you send</h3>
-                <p>Add as many files as you need, review the full set, then upload in one go. Nothing gets sent until you confirm.</p>
-            </div>
-            <div class="feature-card">
-                <div class="fc-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="8" width="18" height="14" rx="3" fill="currentColor" opacity=".12"/><path d="M9 8V7a5 5 0 0110 0v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="15" r="2" fill="currentColor"/></svg>
-                </div>
-                <h3>Quota you can see</h3>
-                <p>The storage meter reflects actual backend limits in real time. When no cap is set, it shows unlimited.</p>
-            </div>
-            <div class="feature-card">
-                <div class="fc-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" fill="currentColor" opacity=".12"/><path d="M9 14l3.5 3.5L19 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <h3>No duplicate storage</h3>
-                <p>File hashes are checked before each upload. If an identical file already exists, it gets skipped rather than stored twice.</p>
-            </div>
-            <div class="feature-card">
-                <div class="fc-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="4" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="16" y="4" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="4" y="16" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/><rect x="16" y="16" width="8" height="8" rx="2" fill="currentColor" opacity=".12"/></svg>
-                </div>
-                <h3>Opaque share links</h3>
-                <p>Share URLs use a token, not the raw filename. Recipients get a clean link; the actual path stays private.</p>
-            </div>
         </div>
+
     </div>
 </section>
 
 <footer class="site-footer" id="footer">
     <div class="footer-inner">
-        <div class="footer-brand">
-            <div class="footer-logo">
-                <div class="logo-mark logo-mark-sm">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                        <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
-                        <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <span>FileFlow</span>
-            </div>
-            <p class="footer-tagline">Secure file sharing, simplified.</p>
-        </div>
-
-        <div class="footer-cols footer-cols-simple">
-            <div class="footer-col">
-                <h4>Navigate</h4>
-                <a href="#app">Upload</a>
-                <a href="#features">Features</a>
-            </div>
-            <div class="footer-col">
-                <h4>Status</h4>
-                <a href="#app">{{ files|length }} file{% if files|length != 1 %}s{% endif %} shared</a>
-                <a href="#app">{{ max_files }}-file batch limit</a>
-                <a href="#app">{{ storage.total }} total storage</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="footer-bottom">
-        <div class="footer-bottom-inner">
-            <span>© 2026 FileFlow Inc. All rights reserved.</span>
-            <div class="footer-bottom-badges">
-                <span class="security-badge">SOC 2 Type II</span>
-                <span class="security-badge">GDPR compliant</span>
-                <span class="security-badge">ISO 27001</span>
-            </div>
-        </div>
+        <div class="footer-logo">FileFlow</div>
+        <p class="footer-tagline">by Acenet</p>
     </div>
 </footer>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// Theme Toggle
+// --- Theme Toggle Logic ---
 (function() {
     const themeToggle = document.getElementById('themeToggle');
     const htmlElement = document.documentElement;
-    
-    // Check for saved theme preference or default to 'light'
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    
-    // Apply saved theme on page load
-    if (currentTheme === 'dark') {
-        htmlElement.classList.add('dark-mode');
-    }
-    
-    // Theme toggle click handler
-    themeToggle?.addEventListener('click', () => {
-        if (htmlElement.classList.contains('dark-mode')) {
-            htmlElement.classList.remove('dark-mode');
-            localStorage.setItem('theme', 'light');
+    const sunIcon = themeToggle?.querySelector('.sun-icon');
+    const moonIcon = themeToggle?.querySelector('.moon-icon');
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            htmlElement.classList.add('dark-mode');
+            if (sunIcon) sunIcon.style.display = 'none';
+            if (moonIcon) moonIcon.style.display = '';
         } else {
-            htmlElement.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
-        }
-    });
-    
-    // Respect system preference on first visit
-    if (!localStorage.getItem('theme')) {
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            htmlElement.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
+            htmlElement.classList.remove('dark-mode');
+            if (sunIcon) sunIcon.style.display = '';
+            if (moonIcon) moonIcon.style.display = 'none';
         }
     }
+
+    const currentTheme = localStorage.getItem('theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+    applyTheme(currentTheme);
+    if (!localStorage.getItem('theme')) localStorage.setItem('theme', currentTheme);
+
+    themeToggle?.addEventListener('click', () => {
+        const next = htmlElement.classList.contains('dark-mode') ? 'light' : 'dark';
+        localStorage.setItem('theme', next);
+        applyTheme(next);
+    });
 })();
+
+// --- File Input & Upload Animation Triggers ---
+const fileInput = document.getElementById('fileInput');
+const panelUpload = document.getElementById('panel-upload');
+const panelProgress = document.getElementById('panel-progress');
+const panelSuccess = document.getElementById('panel-success');
+const panelFiles = document.getElementById('panel-files');
+
+document.getElementById('chooseTrigger')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+});
+
+document.getElementById('dropZone')?.addEventListener('click', (e) => {
+    if (e.target !== document.getElementById('dropZone') && e.target.closest('button')) return;
+    fileInput.click();
+});
+document.getElementById('successCopyBtn')?.addEventListener('click', function() {
+    const url = this.getAttribute('data-copy-url');
+    navigator.clipboard.writeText(url).then(() => {
+        // Trigger your toast notification here
+        showToast('Link copied to clipboard');
+    });
+});
+// SVG Ring Setup
+const progressRing = document.getElementById('progressRing');
+const progressText = document.getElementById('progressText');
+const progressFileName = document.getElementById('progressFileName');
+const successFileName = document.getElementById('successFileName');
+const successFileSize = document.getElementById('successFileSize');
+
+const radius = progressRing.r.baseVal.value;
+const circumference = radius * 2 * Math.PI;
+progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+progressRing.style.strokeDashoffset = circumference;
+
+function setProgress(percent) {
+    const offset = circumference - percent / 100 * circumference;
+    progressRing.style.strokeDashoffset = offset;
+    progressText.innerText = `${Math.floor(percent)}%`;
+}
+
+// Intercept File Selection
+fileInput?.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        
+        progressFileName.innerText = file.name;
+        successFileName.innerText = file.name;
+        successFileSize.innerText = `${sizeMB} MB`;
+        
+        // Setup Icon extension
+        const ext = file.name.split('.').pop().substring(0, 4).toUpperCase();
+        document.querySelector('.sc-icon').innerText = ext;
+
+        // Hide Upload and Files panels, show Progress
+        panelUpload.classList.remove('active');
+        if(panelFiles) panelFiles.style.display = 'none';
+        panelProgress.style.display = 'flex'; 
+        
+        // --- SIMULATED UPLOAD (Replace with real XMLHttpRequest/Fetch) ---
+        let percent = 0;
+        const interval = setInterval(() => {
+            percent += Math.random() * 15;
+            if (percent >= 100) {
+                percent = 100;
+                clearInterval(interval);
+                
+                // Show Success Panel
+                setTimeout(() => {
+                    panelProgress.style.display = 'none';
+                    panelSuccess.style.display = 'block';
+
+                    // LOGICAL CONNECTION: 
+                    // Assuming your backend returns a JSON object like { "url": "...", "name": "...", "size": "..." }
+                    // Replace this simulation with your actual fetch request
+                    
+                    // Example:
+                    /*
+                    fetch('/upload_file', { method: 'POST', body: formData })
+                        .then(res => res.json())
+                        .then(data => {
+                            document.getElementById('successLinkBox').innerText = data.url;
+                            document.getElementById('successCopyBtn').dataset.copyUrl = data.url;
+                            // Now the link is live and connected to the uploaded file
+                        });
+                    */
+                    
+                    // Mock for your current view:
+                    const mockUrl = 'fileflow.com/f/' + Math.random().toString(36).substr(2, 8);
+                    document.getElementById('successLinkBox').innerText = mockUrl;
+                    document.getElementById('successCopyBtn').dataset.copyUrl = mockUrl;
+                }, 500);
+            }
+            setProgress(percent);
+        }, 300);
+        // --- END SIMULATION ---
+    }
+});
 </script>
 
 <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/bundled/lenis.min.js"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% if flash_data.success_messages %}
+<script>
+    const successMessages = {{ flash_data.success_messages | tojson }};
+    if (typeof showToast === 'function') {
+        successMessages.forEach((message, index) => {
+            window.setTimeout(() => showToast(message), index * 2200);
+        });
+    }
+</script>
+{% endif %}
 </body>
 </html>

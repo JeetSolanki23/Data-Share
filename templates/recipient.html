@@ -1,387 +1,690 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileFlow — {{ file.name }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/fileflow.css') }}">
-    <style>
-        /* Recipient-specific additions */
-        .rp-image-preview {
-            width: 100%;
-            border-radius: 20px;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 200px;
-            max-height: 420px;
-            position: relative;
-        }
-        .rp-image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-            max-height: 420px;
-            cursor: zoom-in;
-        }
-        .rp-image-fullscreen {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            cursor: zoom-out;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-        .rp-image-fullscreen.open {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .rp-image-fullscreen img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            border-radius: 12px;
-        }
-        .rp-image-fullscreen .close-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 44px;
-            height: 44px;
-            border-radius: 999px;
-            background: var(--surface-soft);
-            border: 1px solid var(--line-strong);
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 20px;
-            line-height: 1;
-            transition: background 0.15s;
-        }
-        .rp-image-fullscreen .close-btn:hover {
-            background: var(--line-strong);
-        }
-        .rp-preview-hint {
-            position: absolute;
-            bottom: 12px;
-            right: 12px;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: var(--surface-strong);
-            color: var(--text);
-            font-size: 0.78rem;
-            font-weight: 600;
-            backdrop-filter: blur(6px);
-            pointer-events: none;
-        }
-        .rp-file-icon-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 14px;
-            padding: 32px 0 16px;
-        }
-        .rp-meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 18px;
-        }
-        .rp-meta-item {
-            padding: 14px 16px;
-            border-radius: 18px;
-            border: 1px solid var(--line);
-            background: var(--surface-strong);
-        }
-        .rp-meta-label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 4px;
-        }
-        .rp-meta-value {
-            font-weight: 600;
-            font-size: 0.95rem;
-            letter-spacing: -0.02em;
-        }
-        .rp-download-block {
-            padding: 24px;
-            border-radius: 24px;
-            border: 1px solid var(--line);
-            background: var(--surface-strong);
-            box-shadow: var(--shadow-soft);
-        }
-        .rp-token-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 5px 12px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: var(--surface);
-            color: var(--muted);
-            font-size: 0.82rem;
-            font-weight: 600;
-            font-family: 'DM Mono', monospace;
-            margin-top: 8px;
-        }
-        .rp-token-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 999px;
-            background: var(--success);
-        }
-        .rp-trust-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 20px;
-        }
-        .rp-trust-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 11px;
-            border-radius: 999px;
-            background: rgba(34,197,94,0.08);
-            border: 1px solid rgba(34,197,94,0.18);
-            color: #166534;
-            font-size: 0.82rem;
-            font-weight: 600;
-        }
-        .rp-actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-        @media (max-width: 640px) {
-            .rp-meta-grid { grid-template-columns: 1fr; }
-            .rp-actions { flex-direction: column; }
-            .rp-actions .btn-primary,
-            .rp-actions .btn-outline { width: 100%; justify-content: center; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileFlow — {{ file.name if file else 'Shared file' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Apple-style overrides ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+      background: #F2F2F7;
+      color: #1C1C1E;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* NAV */
+    .topnav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(242, 242, 247, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 0.5px solid rgba(0,0,0,0.05);
+      height: 56px;
+    }
+    .nav-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      text-decoration: none;
+      color: #1C1C1E;
+    }
+    .nav-logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: #1C1C1E;
+    }
+    .nav-logo-sub {
+      font-size: 15px;
+      font-weight: 400;
+      color: #636366;
+      letter-spacing: -0.2px;
+    }
+
+    /* MAIN CONTENT */
+    .app-section {
+      padding: 56px 24px 28px;
+      flex: 1 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .section-inner {
+      max-width: 600px;
+      width: 100%;
+    }
+
+    /* CARD */
+    .app-shell {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 28px;
+      border: 1px solid rgba(199, 199, 204, 0.8);
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+      backdrop-filter: blur(16px);
+      padding: 40px 34px;
+      position: relative;
+    }
+
+    .card-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .success-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #34C759;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 24px rgba(52, 199, 89, 0.18);
+    }
+
+    .success-badge svg {
+      width: 32px;
+      height: 32px;
+      stroke: #fff;
+      fill: none;
+    }
+
+    .card-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1C1C1E;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .card-subtitle {
+      font-size: 15px;
+      color: #8E8E93;
+      line-height: 1.6;
+      margin-bottom: 0;
+      letter-spacing: -0.2px;
+    }
+
+    /* STATUS PILL */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #F0FFF4;
+      color: #34C759;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 0.5px solid rgba(52, 199, 89, 0.2);
+      position: absolute;
+      top: 40px;
+      right: 34px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34C759;
+    }
+
+    /* FILE ROW */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 0.5px solid #F2F2F7;
+    }
+
+    .icon-box {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: #F2F2F7;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1C1C1E;
+      letter-spacing: -0.3px;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .file-size {
+      font-size: 13px;
+      color: #8E8E93;
+      margin-top: 2px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+    }
+
+    /* META GRID */
+    .file-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding: 16px 0;
+      border-top: 0.5px solid #F2F2F7;
+      border-bottom: 0.5px solid #F2F2F7;
+    }
+
+    .meta-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      color: #AEAEB2;
+      text-transform: uppercase;
+    }
+
+    .meta-value {
+      font-size: 14px;
+      color: #1C1C1E;
+      word-break: break-word;
+      line-height: 1.45;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    /* LINK BOX */
+    .link-section {
+      margin-bottom: 24px;
+    }
+
+    .link-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      color: #AEAEB2;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .link-box {
+      background: #F2F2F7;
+      border: 0.5px solid rgba(0, 0, 0, 0.06);
+      border-radius: 14px;
+      padding: 14px 14px;
+      font-size: 12px;
+      color: #007AFF;
+      font-family: 'DM Mono', monospace;
+      word-break: break-all;
+      line-height: 1.5;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .link-box:hover {
+      background: #E5E5EA;
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    /* STATUS MESSAGE */
+    .status {
+      font-size: 14px;
+      color: #8E8E93;
+      margin-bottom: 24px;
+      line-height: 1.6;
+      letter-spacing: -0.2px;
+    }
+
+    /* ACTIONS */
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-direction: column;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      background: #007AFF;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 11px 22px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      font-family: inherit;
+      letter-spacing: -0.2px;
+      box-shadow: 0 10px 22px rgba(0, 122, 255, 0.18);
+      transition: background 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary:hover { 
+      background: #0071EB; 
+      transform: translateY(-1px); 
+      box-shadow: 0 12px 24px rgba(0, 122, 255, 0.22);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 22px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.2px;
+      border: 1px solid #D1D1D6;
+      color: #1C1C1E;
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: border-color 0.15s, color 0.15s, transform 0.15s, background 0.15s;
+    }
+    .btn-secondary:hover {
+      border-color: #B8B8BF;
+      color: #111827;
+      transform: translateY(-1px);
+      background: #fff;
+    }
+
+    /* FOOTER */
+    .site-footer {
+      background: #F2F2F7;
+      border-top: 0.5px solid #E5E5EA;
+      padding: 16px 24px 18px;
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+    .footer-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      display: block;
+      text-align: center;
+    }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1C1C1E;
+      letter-spacing: -0.03em;
+      margin-bottom: 2px;
+    }
+    .footer-tagline {
+      font-size: 13px;
+      color: #8E8E93;
+      letter-spacing: -0.01em;
+    }
+
+    /* DARK MODE */
+    html.dark-mode body {
+      background: #1C1C1E;
+      color: #F2F2F7;
+    }
+    html.dark-mode .topnav { 
+      background: rgba(28,28,30,0.88); 
+      border-bottom-color: rgba(255,255,255,0.08); 
+    }
+    html.dark-mode .nav-logo-text { color: #F2F2F7; }
+    html.dark-mode .nav-logo-sub { color: #8E8E93; }
+    html.dark-mode .nav-link { color: #8E8E93; }
+    html.dark-mode .nav-link:hover { color: #F2F2F7; }
+    html.dark-mode .app-shell { 
+      background: #2C2C2E; 
+      border-color: #48484A; 
+    }
+    html.dark-mode .card-title { color: #F2F2F7; }
+    html.dark-mode .file-name { color: #F2F2F7; }
+    html.dark-mode .icon-box { background: #3A3A3C; }
+    html.dark-mode .file-meta-grid { 
+      border-top-color: #3A3A3C; 
+      border-bottom-color: #3A3A3C; 
+    }
+    html.dark-mode .file-row { border-bottom-color: #3A3A3C; }
+    html.dark-mode .link-box {
+      background: #3A3A3C;
+      border-color: rgba(255,255,255,0.08);
+    }
+    html.dark-mode .link-box:hover {
+      background: #48484A;
+      border-color: rgba(255,255,255,0.12);
+    }
+    html.dark-mode .btn-secondary { 
+      border-color: #48484A; 
+      color: #8E8E93; 
+      background: transparent;
+    }
+    html.dark-mode .btn-secondary:hover { 
+      background: #3A3A3C; 
+      color: #F2F2F7; 
+    }
+    html.dark-mode .site-footer { 
+      background: #1C1C1E; 
+      border-top-color: #3A3A3C; 
+    }
+    html.dark-mode .footer-logo { color: #F2F2F7; }
+    html.dark-mode .upload-icon-box { background: rgba(0, 122, 255, 0.15); }
+    html.dark-mode .file-upload-name { color: #F2F2F7; }
+    html.dark-mode .progress-bar-wrap { background: #3A3A3C; }
+    html.dark-mode .progress-percent { color: #F2F2F7; }
+    html.dark-mode .progress-header-subtitle { color: #8E8E93; }
+    html.dark-mode .progress-header-title { color: #F2F2F7; }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .app-section { padding: 40px 20px 24px; }
+      .card-title { font-size: 24px; }
+      .app-shell { padding: 24px 20px; }
+      .status-pill { position: static; margin-bottom: 24px; }
+    }
+
+    /* PROGRESS STATE */
+    .progress-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .progress-header {
+      text-align: left;
+    }
+
+    .progress-header-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1C1C1E;
+      letter-spacing: -0.025em;
+      margin-bottom: 6px;
+    }
+
+    .progress-header-subtitle {
+      font-size: 14px;
+      color: #8E8E93;
+      letter-spacing: -0.1px;
+    }
+
+    .file-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .upload-icon-box {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: #E5F0FF;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-upload-info {
+      flex: 1;
+    }
+
+    .file-upload-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1C1C1E;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .file-upload-size {
+      font-size: 13px;
+      color: #8E8E93;
+      letter-spacing: -0.1px;
+    }
+
+    .progress-bar-wrap {
+      width: 100%;
+      height: 6px;
+      background: #E5E5EA;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: #007AFF;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .progress-percent {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1C1C1E;
+      letter-spacing: -0.2px;
+    }
+
+    .progress-speed {
+      font-size: 13px;
+      color: #8E8E93;
+      letter-spacing: -0.1px;
+    }
+
+    .progress-status {
+      font-size: 13px;
+      color: #8E8E93;
+      letter-spacing: -0.1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .progress-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34C759;
+      animation: pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
 </head>
-<body class="recipient-body">
+<body>
 
-{% set ext = file.name.rsplit('.', 1)[-1].lower() if '.' in file.name else '' %}
-{% set is_image = ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'] %}
+<nav class="topnav">
+  <div class="nav-inner">
+    <a href="{{ url_for('dashboard') }}" class="nav-logo">
+      <span class="nav-logo-text">FileFlow</span>
+      <span class="nav-logo-sub">by Acenet</span>
+    </a>
+  </div>
+</nav>
 
-<main class="recipient-shell">
+<section class="app-section">
+  <div class="section-inner">
+    <div class="app-shell">
+      {% set file_name = file.name if file else 'Shared file' %}
+      {% set file_size = file.size if file else 'Unknown size' %}
+      {% set file_extension = file_name.rsplit('.', 1)[-1].upper() if '.' in file_name else 'FILE' %}
+      {% set download_url = file.download_url if file else '#' %}
+      {% set share_url = file.share_url if file else '#' %}
+      {% set expires_days = file.expires_in_days if file else 7 %}
 
-    <!-- Header bar -->
-    <div class="recipient-topbar">
-        <a href="{{ url_for('dashboard') }}" class="nav-logo recipient-brand-link">
-            <div class="logo-mark">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M3 4a1 1 0 011-1h5l2 2h5a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" fill="currentColor" opacity=".2"/>
-                    <path d="M10 8v6M7 11l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <span class="logo-copy">
-                <span class="logo-text">FileFlow</span>
-                <span class="logo-subtext">Data Share</span>
-            </span>
-        </a>
-        <span class="recipient-badge recipient-badge-soft recipient-topbar-chip">Shared file</span>
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
-            <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="5"></circle>
-                <line x1="12" y1="1" x2="12" y2="3"></line>
-                <line x1="12" y1="21" x2="12" y2="23"></line>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                <line x1="1" y1="12" x2="3" y2="12"></line>
-                <line x1="21" y1="12" x2="23" y2="12"></line>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-            <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-        </button>
-    </div>
-
-    <!-- Main card -->
-    <section class="recipient-card">
-
-        <div class="recipient-grid">
-
-            <!-- LEFT: preview or icon -->
-            <div>
-                {% if is_image and file.download_url %}
-                <div class="rp-image-preview" id="previewBox">
-                    <img src="{{ file.download_url }}" alt="{{ file.name }}" id="previewImg" title="Click to enlarge">
-                    <span class="rp-preview-hint">Click to enlarge</span>
-                </div>
-                {% else %}
-                    <div class="rp-file-icon-wrap">
-                        <div class="recipient-icon recipient-icon-large">
-                        {{ ext.upper() if ext else 'FILE' }}
-                    </div>
-                        <p class="rp-no-preview-copy">
-                        No preview available for this file type.
-                    </p>
-                </div>
-                {% endif %}
-
-                <div class="rp-meta-grid">
-                    <div class="rp-meta-item">
-                        <div class="rp-meta-label">File size</div>
-                        <div class="rp-meta-value">{{ file.size }}</div>
-                    </div>
-                    <div class="rp-meta-item">
-                        <div class="rp-meta-label">Format</div>
-                        <div class="rp-meta-value">{{ ext.upper() if ext else 'Unknown' }}</div>
-                    </div>
-                    <div class="rp-meta-item">
-                        <div class="rp-meta-label">Storage</div>
-                        <div class="rp-meta-value">{% if file.cloudinary_url %}Cloud hosted{% else %}Local{% endif %}</div>
-                    </div>
-                    <div class="rp-meta-item">
-                        <div class="rp-meta-label">Status</div>
-                        <div class="rp-meta-value rp-meta-ready">Ready</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT: download panel -->
-            <div>
-                <div class="rp-download-block">
-                    <h1 class="rp-file-title">{{ file.name }}</h1>
-
-                    {% if file.share_token %}
-                    <div class="rp-token-badge">
-                        <span class="rp-token-dot"></span>
-                        ••{{ file.share_token[-6:] }}
-                    </div>
-                    {% endif %}
-
-                    <p class="rp-file-copy">
-                        This file was shared via FileFlow. The share link uses a private token — the actual filename and storage path aren't exposed in the URL.
-                    </p>
-
-                    <div class="rp-actions">
-                        <a href="{{ file.download_url }}" class="btn-primary btn-lg" download>
-                            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2v9M5 8l3.5 3.5L12 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13.5h13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                            Download file
-                        </a>
-                        {% if is_image and file.download_url %}
-                        <button class="btn-outline btn-lg" id="previewBtn" type="button">
-                            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8.5" cy="8.5" r="2.5" stroke="currentColor" stroke-width="1.4"/></svg>
-                            Preview
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    <div class="rp-trust-row">
-                        <span class="rp-trust-badge">
-                            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5l4 1.5v3c0 2.5-1.6 4.5-4 5.5-2.4-1-4-3-4-5.5V3l4-1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-                            Tokenized link
-                        </span>
-                        <span class="rp-trust-badge">
-                            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3 3 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            {% if file.cloudinary_url %}Cloudinary CDN{% else %}Verified copy{% endif %}
-                        </span>
-                        <span class="rp-trust-badge">
-                            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 4v3l2 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-                            Available now
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Back link -->
-                <div class="rp-back-wrap">
-                    <a href="{{ url_for('dashboard') }}" class="rp-back-link">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        Back to dashboard
-                    </a>
-                </div>
-            </div>
-
+      <!-- Upload Progress State -->
+      {% if file and file.is_processing %}
+      <div class="progress-section">
+        <div class="progress-header">
+          <div class="progress-header-title">Uploading file</div>
+          <div class="progress-header-subtitle">Your file is being secured and prepared.</div>
         </div>
 
-    </section>
-</main>
+        <div class="file-upload-row">
+          <div class="upload-icon-box">
+            <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 3C2 1.34 3.34 0 5 0H14L22 8V25C22 26.66 20.66 28 19 28H5C3.34 28 2 26.66 2 25V3Z"
+                    stroke="#007AFF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 0V8H22" stroke="#007AFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="file-upload-info">
+            <div class="file-upload-name">{{ file_name }}</div>
+            <div class="file-upload-size">{{ file_size }}</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width: {{ file.upload_progress if file and file.upload_progress else 0 }}%;"></div>
+        </div>
+
+        <div class="progress-stats">
+          <span class="progress-percent">{{ file.upload_progress if file and file.upload_progress else 0 }}%</span>
+          <span class="progress-speed">{{ file.upload_speed if file and file.upload_speed else '' }} · {{ file.time_remaining if file and file.time_remaining else '' }}</span>
+        </div>
+
+        <div class="progress-status">
+          <span class="progress-status-dot"></span>
+          Securing your file with end-to-end encryption...
+        </div>
+      </div>
+
+      <!-- Download Ready State -->
+      {% else %}
+      <div class="card-header">
+        <div class="success-badge">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div class="card-title">Your link is ready</div>
+        <div class="card-subtitle">Anyone with this link can download the file.</div>
+      </div>
+
+      <div class="file-row">
+        <div class="icon-box" aria-hidden="true">
+          <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 3C2 1.34 3.34 0 5 0H14L22 8V25C22 26.66 20.66 28 19 28H5C3.34 28 2 26.66 2 25V3Z"
+                  stroke="#007AFF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 0V8H22" stroke="#007AFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="file-name">{{ file_name }}</div>
+          <div class="file-size">{{ file_size }}</div>
+        </div>
+      </div>
+
+      <div class="file-meta-grid">
+        <div class="meta-card">
+          <span class="meta-label">Type</span>
+          <div class="meta-value">{{ file_extension }}</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Size</span>
+          <div class="meta-value">{{ file_size }}</div>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Expires in</span>
+          <div class="meta-value">{{ expires_days }} days</div>
+        </div>
+      </div>
+
+      <div class="link-section">
+        <div class="link-label">Share Link</div>
+        <div class="link-box copy-btn" data-copy-url="{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '#' }}" title="Click to copy">{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '' }}</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn-primary" href="{{ download_url }}">Download</a>
+        <button class="btn-secondary" type="button" onclick="window.open('{{ request.referrer or url_for('dashboard') }}', '_blank')">Share with others</button>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-logo">FileFlow</div>
+    <p class="footer-tagline">Data Share by Acenet</p>
+  </div>
+</footer>
 
 <script>
-// Theme Toggle - ALWAYS RUN regardless of preview availability
+// Theme Toggle
 (function() {
-    const themeToggle = document.getElementById('themeToggle');
     const htmlElement = document.documentElement;
-    
-    // Check for saved theme preference or default to 'light'
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    
-    // Apply saved theme on page load
-    if (currentTheme === 'dark') {
-        htmlElement.classList.add('dark-mode');
-    }
-    
-    // Theme toggle click handler
-    themeToggle?.addEventListener('click', () => {
-        if (htmlElement.classList.contains('dark-mode')) {
-            htmlElement.classList.remove('dark-mode');
-            localStorage.setItem('theme', 'light');
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            htmlElement.classList.add('dark-mode');
         } else {
-            htmlElement.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
-        }
-    });
-    
-    // Respect system preference on first visit
-    if (!localStorage.getItem('theme')) {
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            htmlElement.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
+            htmlElement.classList.remove('dark-mode');
         }
     }
+
+    const currentTheme = localStorage.getItem('theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+    applyTheme(currentTheme);
+    if (!localStorage.getItem('theme')) localStorage.setItem('theme', currentTheme);
 })();
 </script>
-
-{% if is_image and file.download_url %}
-<!-- Fullscreen image lightbox -->
-<div class="rp-image-fullscreen" id="lightbox">
-    <button class="close-btn" id="closeLightbox" aria-label="Close preview">✕</button>
-    <img src="{{ file.download_url }}" alt="{{ file.name }}">
-</div>
-
-<script>
-(function () {
-    var lb = document.getElementById('lightbox');
-    var previewImg = document.getElementById('previewImg');
-    var previewBtn = document.getElementById('previewBtn');
-    var closeBtn = document.getElementById('closeLightbox');
-
-    function openLightbox() { lb.classList.add('open'); document.body.style.overflow = 'hidden'; }
-    function closeLightbox() { lb.classList.remove('open'); document.body.style.overflow = ''; }
-
-    if (previewImg) previewImg.addEventListener('click', openLightbox);
-    if (previewBtn) previewBtn.addEventListener('click', openLightbox);
-    if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
-    lb.addEventListener('click', function (e) { if (e.target === lb) closeLightbox(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
-})();
-</script>
-{% endif %}
 
 </body>
 </html>

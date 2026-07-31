@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileFlow — How it works</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+        /* ─── Apple-style HIG & Documentation Overrides ─── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background: #F5F5F7;
+            color: #1D1D1F;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* EXACT NAV FROM MAIN APP */
+        .topnav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(245, 245, 247, 0.72);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+            height: 56px; /* Matched exactly to main app */
+            transition: background-color 0.3s ease;
+        }
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 36px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            text-decoration: none;
+            color: #1D1D1F;
+        }
+        .nav-logo-text {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.022em;
+        }
+        .nav-logo-sub {
+            font-size: 14px;
+            font-weight: 400;
+            color: #86868B;
+        }
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        /* Nav specific to this page */
+        .back-link {
+            font-size: 14px;
+            font-weight: 500;
+            color: #007AFF;
+            text-decoration: none;
+            letter-spacing: -0.01em;
+            padding: 8px 16px;
+            border-radius: 999px;
+            background: rgba(0, 122, 255, 0.08);
+            transition: all 0.2s ease;
+        }
+        .back-link:hover { background: rgba(0, 122, 255, 0.15); }
+        .back-link:active { transform: scale(0.96); }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #86868B;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle:hover { color: #1D1D1F; background: rgba(0,0,0,0.05); }
+        .theme-toggle:active { transform: scale(0.9); }
+
+        /* PAGE CONTENT */
+        .page-shell {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 64px 36px;
+            flex: 1 0 auto;
+        }
+
+        .hero {
+            max-width: 720px;
+            margin-bottom: 64px;
+        }
+        .eyebrow {
+            display: inline-flex;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #86868B;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+        h1 {
+            font-size: clamp(40px, 6vw, 56px);
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            color: #1D1D1F;
+            margin-bottom: 20px;
+        }
+        .lede {
+            font-size: 19px;
+            line-height: 1.5;
+            color: #86868B;
+            letter-spacing: -0.015em;
+            font-weight: 400;
+            max-width: 60ch;
+        }
+
+        /* GRID & CARDS */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 24px;
+        }
+        .card {
+            grid-column: span 6;
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 32px;
+            border: 0.5px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.04);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .card h2 {
+            font-size: 21px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #1D1D1F;
+            margin-bottom: 12px;
+        }
+        .card p {
+            font-size: 15px;
+            line-height: 1.5;
+            color: #86868B;
+        }
+
+        /* WIDE STEP CARD */
+        .wide {
+            grid-column: span 12;
+            display: flex;
+            gap: 32px;
+            align-items: flex-start;
+        }
+        .step {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 16px;
+            right: -24px;
+            width: 16px;
+            height: 1px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #F5F5F7;
+            color: #1D1D1F;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border: 0.5px solid rgba(0, 0, 0, 0.05);
+        }
+        .step h3 {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #1D1D1F;
+            margin-bottom: 8px;
+        }
+        .step p {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #86868B;
+        }
+
+        /* FOOTER */
+        .site-footer {
+            padding: 32px 36px;
+            border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            max-width: 1080px;
+            margin: auto auto 0;
+            width: 100%;
+        }
+        .footer-text {
+            font-size: 13px;
+            color: #86868B;
+            letter-spacing: -0.01em;
+        }
+
+        /* ─── DARK MODE (Strict HIG Colors) ─── */
+        html.dark-mode body {
+            background: #000000;
+            color: #F5F5F7;
+        }
+        html.dark-mode .topnav {
+            background: rgba(28, 28, 30, 0.72);
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+        html.dark-mode .nav-logo-text { color: #FFFFFF; }
+        html.dark-mode .nav-logo-sub { color: #86868B; }
+        html.dark-mode .theme-toggle { color: #86868B; }
+        html.dark-mode .theme-toggle:hover { color: #FFFFFF; }
+        
+        html.dark-mode h1, html.dark-mode .card h2, html.dark-mode .step h3 {
+            color: #FFFFFF;
+        }
+        html.dark-mode .back-link {
+            background: rgba(10, 132, 255, 0.15);
+            color: #0A84FF;
+        }
+        html.dark-mode .back-link:hover {
+            background: rgba(10, 132, 255, 0.25);
+        }
+        html.dark-mode .card {
+            background: #1C1C1E;
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        }
+        html.dark-mode .step-num {
+            background: #2C2C2E;
+            color: #FFFFFF;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        html.dark-mode .step:not(:last-child)::after {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        html.dark-mode .site-footer {
+            border-top-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .page-shell { padding: 40px 24px; }
+            .card { grid-column: span 12; }
+            .wide { flex-direction: column; gap: 40px; }
+            .step:not(:last-child)::after { display: none; }
+            .site-footer { flex-direction: column; align-items: flex-start; padding: 32px 24px; }
+            h1 { font-size: 36px; }
+            .nav-inner { padding: 0 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="topnav">
+        <div class="nav-inner">
+            <a class="nav-logo" href="{{ url_for('dashboard') }}">
+                <span class="nav-logo-text">FileFlow</span>
+                <span class="nav-logo-sub">by Acenet</span>
+            </a>
+            <div class="nav-actions">
+                <a class="back-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-shell">
+        <section class="hero">
+            <div class="eyebrow">Documentation</div>
+            <h1>Share files without extra steps.</h1>
+            <p class="lede">Upload the file, get a clean share link, and let the recipient download the exact stored file. The dashboard stays focused entirely on uploads.</p>
+        </section>
+
+        <div class="grid">
+            <article class="card">
+                <h2>Stage first, send once</h2>
+                <p>Add one or more files, review them locally, and only execute the upload sequence when you are completely ready.</p>
+            </article>
+
+            <article class="card">
+                <h2>Real-time storage allocation</h2>
+                <p>The storage meter continuously reflects the exact backend quota constraints. Environments with unlimited storage correctly report bypass metrics.</p>
+            </article>
+
+            <article class="card wide">
+                <div class="step">
+                    <div class="step-num">01</div>
+                    <h3>Upload</h3>
+                    <p>Select targets from the dashboard. The client strictly validates file heuristics before passing data to the storage buffer.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">02</div>
+                    <h3>Share</h3>
+                    <p>FileFlow computes an opaque cryptographic share link, ensuring the recipient does not require direct file mapping.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">03</div>
+                    <h3>Download</h3>
+                    <p>The receiver resolves the live page endpoint to acquire metadata and initialize a direct, unthrottled download stream.</p>
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <span class="footer-text">FileFlow by Acenet</span>
+        <span class="footer-text">Built for simple, private file exchange.</span>
+    </footer>
+
+    <script>
+    (function() {
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+        const sunIcon = themeToggle?.querySelector('.sun-icon');
+        const moonIcon = themeToggle?.querySelector('.moon-icon');
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                htmlElement.classList.add('dark-mode');
+                if (sunIcon) sunIcon.style.display = 'none';
+                if (moonIcon) moonIcon.style.display = '';
+            } else {
+                htmlElement.classList.remove('dark-mode');
+                if (sunIcon) sunIcon.style.display = '';
+                if (moonIcon) moonIcon.style.display = 'none';
+            }
+        }
+
+        const currentTheme = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+        applyTheme(currentTheme);
+        if (!localStorage.getItem('theme')) localStorage.setItem('theme', currentTheme);
+
+        themeToggle?.addEventListener('click', () => {
+            const next = htmlElement.classList.contains('dark-mode') ? 'light' : 'dark';
+            localStorage.setItem('theme', next);
+            applyTheme(next);
+        });
+    })();
+    </script>
+</body>
+</html>

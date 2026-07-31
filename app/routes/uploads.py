@@ -71,6 +71,11 @@ def register_upload_routes(app, limiter):
                                   files=[],
                                   storage={'used': '0', 'total': '0', 'percent': 0, 'is_full': False},
                                   max_files="Unlimited"), 500
+
+    @app.route('/how-it-works')
+    def how_it_works():
+        """Explain the core file-sharing workflow."""
+        return render_template('how_it_works.html')
     
     @app.route('/upload', methods=['POST'])
     def upload_file():

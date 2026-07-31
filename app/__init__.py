@@ -130,7 +130,7 @@ def create_app():
         from flask import redirect, url_for, flash
         flash("File too large for server configuration.", "error")
         logger.warning(f"File too large error: {error}")
-        return redirect(url_for('dashboard')), 413
+        return redirect(url_for('dashboard'))
     
     @app.errorhandler(429)
     def ratelimit_handler(e):
@@ -138,7 +138,7 @@ def create_app():
         from flask import redirect, url_for, flash
         flash("Too many requests. Please wait a moment.", "error")
         logger.warning(f"Rate limit exceeded for {os.environ.get('REMOTE_ADDR', 'unknown')}")
-        return redirect(url_for('dashboard')), 429
+        return redirect(url_for('dashboard'))
     
     @app.errorhandler(404)
     def not_found(error):
