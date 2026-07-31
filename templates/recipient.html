@@ -71,23 +71,31 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      min-height: calc(100vh - 56px - 72px); /* nav + footer space */
     }
     .section-inner {
-      max-width: 600px;
+      max-width: 1100px;
       width: 100%;
+      display: flex;
+      gap: 28px;
+      align-items: stretch;
     }
 
     /* CARD */
     .app-shell {
       background: rgba(255, 255, 255, 0.92);
-      border-radius: 28px;
+      border-radius: 20px;
       border: 1px solid rgba(199, 199, 204, 0.8);
       overflow: hidden;
       box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
       backdrop-filter: blur(16px);
-      padding: 40px 34px;
+      padding: 28px;
       position: relative;
+      display: flex;
+      gap: 24px;
+      align-items: stretch;
+      width: 100%;
     }
 
     .card-header {
@@ -161,9 +169,7 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      margin-bottom: 24px;
-      padding-bottom: 20px;
-      border-bottom: 0.5px solid #F2F2F7;
+      margin-bottom: 12px;
     }
 
     .icon-box {
@@ -277,7 +283,8 @@
     .actions {
       display: flex;
       gap: 12px;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: center;
     }
 
     .btn-primary {
@@ -328,6 +335,32 @@
       color: #111827;
       transform: translateY(-1px);
       background: #fff;
+    }
+
+    /* PREVIEW */
+    .preview-pane {
+      flex: 1 1 60%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #FBFBFD;
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 60vh;
+      max-height: calc(100vh - 200px);
+      overflow: auto;
+    }
+    .meta-pane {
+      width: 360px;
+      flex: 0 0 360px;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-pane img, .preview-pane video, .preview-pane iframe {
+      max-width: 100%;
+      max-height: calc(100vh - 260px);
+      border-radius: 8px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
     }
 
     /* FOOTER */
@@ -604,7 +637,7 @@
 
       <!-- Download Ready State -->
       {% else %}
-      <div class="card-header">
+      <div class="card-header meta-pane">
         <div class="success-badge">
           <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
@@ -626,9 +659,25 @@
           <div class="file-name">{{ file_name }}</div>
           <div class="file-size">{{ file_size }}</div>
         </div>
-      </div>
+        </div>
 
-      <div class="file-meta-grid">
+        <div class="preview-pane" id="previewPane">
+        {% if file and file.preview_url %}
+          {% if file_extension in ['JPG','JPEG','PNG','GIF','WEBP','SVG'] %}
+            <img src="{{ file.preview_url }}" alt="{{ file_name }}">
+          {% elif file_extension in ['MP4','MOV','WEBM'] %}
+            <video controls src="{{ file.preview_url }}"></video>
+          {% elif file_extension in ['PDF'] %}
+            <iframe src="{{ file.preview_url }}" frameborder="0"></iframe>
+          {% else %}
+            <div style="text-align:center;color:#8E8E93">No inline preview available.</div>
+          {% endif %}
+        {% else %}
+          <div style="text-align:center;color:#8E8E93">Preview not available.</div>
+        {% endif %}
+        </div>
+
+        <div class="file-meta-grid meta-pane">
         <div class="meta-card">
           <span class="meta-label">Type</span>
           <div class="meta-value">{{ file_extension }}</div>
@@ -645,12 +694,14 @@
 
       <div class="link-section">
         <div class="link-label">Share Link</div>
-        <div class="link-box copy-btn" data-copy-url="{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '#' }}" title="Click to copy">{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '' }}</div>
+        <div id="linkBox" class="link-box copy-btn" data-copy-url="{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '#' }}" title="Click to copy">{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '' }}</div>
       </div>
 
       <div class="actions">
-        <a class="btn-primary" href="{{ download_url }}">Download</a>
-        <button class="btn-secondary" type="button" onclick="window.open('{{ request.referrer or url_for('dashboard') }}', '_blank')">Share with others</button>
+        <a id="downloadBtn" class="btn-primary" href="{{ download_url }}">Download</a>
+        <button id="qrBtn" class="btn-secondary" type="button">QR Code</button>
+        <button id="shareBtn" class="btn-secondary" type="button">Share</button>
+        <button id="mailBtn" class="btn-secondary" type="button">Mail</button>
       </div>
       {% endif %}
 
@@ -684,6 +735,44 @@
     applyTheme(currentTheme);
     if (!localStorage.getItem('theme')) localStorage.setItem('theme', currentTheme);
 })();
+
+  // Copy and share handlers for recipient page
+  document.addEventListener('DOMContentLoaded', () => {
+    const linkBox = document.getElementById('linkBox');
+    const qrBtn = document.getElementById('qrBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const mailBtn = document.getElementById('mailBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    function getUrl() {
+      return (linkBox && linkBox.dataset.copyUrl) ? linkBox.dataset.copyUrl : (downloadBtn ? downloadBtn.href : window.location.href);
+    }
+
+    if (linkBox) {
+      linkBox.addEventListener('click', async () => {
+        const url = getUrl();
+        try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); }
+      });
+    }
+
+    if (qrBtn) qrBtn.addEventListener('click', () => {
+      const url = getUrl();
+      const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url);
+      const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+      if (w) { w.document.write('<img src="'+qrSrc+'" alt="QR code">'); w.document.title = 'QR Code'; } else { window.open(qrSrc, '_blank'); }
+    });
+
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      const url = getUrl();
+      if (navigator.share) { try { await navigator.share({ title: document.title, text: 'File shared with you', url }); } catch (e) {} }
+      else { try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); } }
+    });
+
+    if (mailBtn) mailBtn.addEventListener('click', () => {
+      const url = getUrl();
+      window.location.href = 'mailto:?subject=' + encodeURIComponent('File shared with you') + '&body=' + encodeURIComponent(url);
+    });
+  });
 </script>
 
 </body>

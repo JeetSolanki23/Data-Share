@@ -1,7 +1,7 @@
 """Upload route handlers."""
 import os
 import logging
-from flask import request, render_template, redirect, url_for, flash
+from flask import request, render_template, redirect, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
 
 from app.config import Config
@@ -184,7 +184,13 @@ def register_upload_routes(app, limiter):
                             try:
                                 update_hash_cache(filename, file_hash, file_size)
                                 update_cloudinary_cache(filename, cloudinary_data['public_id'], cloudinary_data['url'])
-                                ensure_share_token(filename)
+                                token = ensure_share_token(filename)
+                                # collect share token for JSON response when requested
+                                if token:
+                                    try:
+                                        share_tokens.append(token)
+                                    except NameError:
+                                        share_tokens = [token]
                                 logger.info(f"File uploaded to Cloudinary: {filename}")
                                 success_count += 1
                             except Exception as e:
@@ -201,7 +207,12 @@ def register_upload_routes(app, limiter):
                         
                         try:
                             update_hash_cache(filename, file_hash, file_size)
-                            ensure_share_token(filename)
+                            token = ensure_share_token(filename)
+                            if token:
+                                try:
+                                    share_tokens.append(token)
+                                except NameError:
+                                    share_tokens = [token]
                             logger.info(f"File saved to local storage: {filename}")
                             success_count += 1
                         except Exception as e:
@@ -231,5 +242,23 @@ def register_upload_routes(app, limiter):
             flash(f"{duplicate_count} file(s) were skipped (already exist).", "info")
         if error_count > 0:
             flash(f"{error_count} file(s) failed to upload.", "error")
-        
+        # If this was an XHR/fetch request, return JSON including share URLs when available
+        is_xhr = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+                 request.accept_mimetypes.accept_json
+        if is_xhr:
+            urls = []
+            if 'share_tokens' in locals() and share_tokens:
+                for tok in share_tokens:
+                    try:
+                        urls.append(request.host_url.rstrip('/') + url_for('recipient_file', identifier=tok))
+                    except Exception:
+                        # fallback to token only
+                        urls.append(tok)
+            return jsonify({
+                'success_count': success_count,
+                'duplicate_count': duplicate_count,
+                'error_count': error_count,
+                'urls': urls
+            })
+
         return redirect(url_for('dashboard'))

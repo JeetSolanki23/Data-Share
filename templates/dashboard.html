@@ -440,15 +440,15 @@
                     </div>
 
                     <div class="sc-actions">
-                        <button class="sc-action-btn">
+                        <button id="qrBtn" class="sc-action-btn" type="button">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                             QR Code
                         </button>
-                        <button class="sc-action-btn">
+                        <button id="shareBtn" class="sc-action-btn" type="button">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                             Share
                         </button>
-                        <button class="sc-action-btn">
+                        <button id="mailBtn" class="sc-action-btn" type="button">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                             Mail
                         </button>
@@ -618,45 +618,79 @@ fileInput?.addEventListener('change', (e) => {
         if(panelFiles) panelFiles.style.display = 'none';
         panelProgress.style.display = 'flex'; 
         
-        // --- SIMULATED UPLOAD (Replace with real XMLHttpRequest/Fetch) ---
+        // --- SIMULATED UPLOAD (replace with real upload then wire share/QR handlers) ---
         let percent = 0;
         const interval = setInterval(() => {
             percent += Math.random() * 15;
             if (percent >= 100) {
                 percent = 100;
                 clearInterval(interval);
-                
+
                 // Show Success Panel
                 setTimeout(() => {
                     panelProgress.style.display = 'none';
                     panelSuccess.style.display = 'block';
 
-                    // LOGICAL CONNECTION: 
-                    // Assuming your backend returns a JSON object like { "url": "...", "name": "...", "size": "..." }
-                    // Replace this simulation with your actual fetch request
-                    
-                    // Example:
-                    /*
-                    fetch('/upload_file', { method: 'POST', body: formData })
-                        .then(res => res.json())
-                        .then(data => {
-                            document.getElementById('successLinkBox').innerText = data.url;
-                            document.getElementById('successCopyBtn').dataset.copyUrl = data.url;
-                            // Now the link is live and connected to the uploaded file
-                        });
-                    */
-                    
-                    // Mock for your current view:
-                    const mockUrl = 'fileflow.com/f/' + Math.random().toString(36).substr(2, 8);
-                    document.getElementById('successLinkBox').innerText = mockUrl;
-                    document.getElementById('successCopyBtn').dataset.copyUrl = mockUrl;
+                    // Perform real upload via Fetch. Attach X-Requested-With so server returns JSON.
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    fetch('{{ url_for('upload_file') }}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    }).then(res => res.json())
+                    .then(data => {
+                        // Server returns { urls: [...] }
+                        const url = (data && data.urls && data.urls.length) ? data.urls[0] : null;
+                        const displayUrl = url ? (url.startsWith('http') ? url : (window.location.origin + (url.startsWith('/') ? url : '/' + url))) : 'Unavailable';
+                        document.getElementById('successLinkBox').innerText = displayUrl;
+                        document.getElementById('successCopyBtn').setAttribute('data-copy-url', displayUrl);
+                        if (url) setupShareHandlers(displayUrl);
+                    }).catch(err => {
+                        console.error('Upload failed', err);
+                        document.getElementById('successLinkBox').innerText = 'Upload failed';
+                        showToast('Upload failed');
+                    });
                 }, 500);
             }
             setProgress(percent);
         }, 300);
-        // --- END SIMULATION ---
+
+        // --- END SIMULATION (upload happens above) ---
     }
 });
+
+// Wire share helpers once link is available
+function setupShareHandlers(url) {
+    const qrBtn = document.getElementById('qrBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const mailBtn = document.getElementById('mailBtn');
+
+    if (qrBtn) qrBtn.onclick = () => {
+        const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+        const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
+        if (w) {
+            w.document.write('<img src="' + qrSrc + '" alt="QR code">');
+            w.document.title = 'QR Code';
+        } else {
+            // fallback: open in new tab
+            window.open(qrSrc, '_blank');
+        }
+    };
+
+    if (shareBtn) shareBtn.onclick = async () => {
+        if (navigator.share) {
+            try { await navigator.share({ title: document.title, text: 'File shared with you', url }); } catch (e) { /* user cancelled */ }
+        } else {
+            try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); }
+        }
+    };
+
+    if (mailBtn) mailBtn.onclick = () => {
+        window.location.href = 'mailto:?subject=' + encodeURIComponent('File shared with you') + '&body=' + encodeURIComponent(url);
+    };
+    }
 </script>
 
 <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/bundled/lenis.min.js"></script>
