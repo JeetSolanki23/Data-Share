@@ -79,7 +79,39 @@
     .nav-actions {
       display: flex;
       align-items: center;
+      margin-left: auto;
     }
+    .nav-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.04);
+      color: #1D1D1F;
+      cursor: pointer;
+      padding: 0;
+      margin-right: 8px;
+    }
+    .nav-toggle span,
+    .nav-toggle span::before,
+    .nav-toggle span::after {
+      content: '';
+      display: block;
+      width: 18px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 999px;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .nav-toggle span { position: relative; }
+    .nav-toggle span::before { position: absolute; top: -6px; left: 0; }
+    .nav-toggle span::after { position: absolute; top: 6px; left: 0; }
+    .nav-toggle.is-active span { background: transparent; }
+    .nav-toggle.is-active span::before { transform: rotate(45deg); top: 0; }
+    .nav-toggle.is-active span::after { transform: rotate(-45deg); top: 0; }
     .theme-toggle {
       background: none;
       border: none;
@@ -98,7 +130,22 @@
     html.dark-mode .nav-link:hover,
     html.dark-mode .theme-toggle:hover { color: #FFFFFF; }
     @media (max-width: 768px) {
-      .nav-links { display: none; }
+      .nav-inner { padding: 16px 20px; flex-wrap: wrap; min-height: 64px; }
+      .nav-toggle { display: inline-flex; }
+      .nav-actions { margin-left: auto; }
+      .nav-links {
+        display: none;
+        position: static;
+        transform: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding-top: 12px;
+        margin-top: 2px;
+        border-top: 1px solid rgba(0,0,0,0.06);
+      }
+      .nav-links.is-open { display: flex; }
     }
 
     /* MAIN CONTENT */
@@ -719,6 +766,7 @@
 
     /* Mobile */
     @media (max-width: 900px) {
+      .nav-inner { padding: 0 20px; }
       .section-inner { flex-direction: column; }
       .app-shell {
         flex-direction: column;
@@ -728,17 +776,78 @@
       .preview-pane { min-height: 280px; max-height: 380px; flex: none; }
     }
     @media (max-width: 600px) {
-      .app-section { padding: 40px 20px 24px; }
+      .app-section { padding: 32px 16px 24px; }
       .card-title { font-size: 24px; }
-      .app-shell { padding: 24px 20px; }
+      .app-shell { padding: 20px 16px; }
       .actions { flex-direction: column; align-items: stretch; }
       .btn-primary, .btn-secondary { width: 100%; }
+      .file-row { flex-direction: column; align-items: flex-start; }
+      .link-box { font-size: 11px; }
+      .preview-pane { min-height: 220px; }
     }
   </style>
 </head>
 <body>
 
-{% include 'nav.html' %}
+<nav class="topnav">
+  <div class="nav-inner">
+    <a href="{{ url_for('dashboard') }}" class="nav-logo">
+      <span class="nav-logo-text">FileFlow</span>
+      <span class="nav-logo-sub">by Acenet</span>
+    </a>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">
+      <span></span>
+    </button>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
+        <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+        </svg>
+        <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="nav-links" id="navLinks">
+      <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
+      <a href="{{ url_for('privacy') }}" class="nav-link">Privacy</a>
+      <a href="{{ url_for('support') }}" class="nav-link">Support</a>
+    </div>
+  </div>
+  <script>
+    (function(){
+      try {
+        var nav = document.querySelector('.topnav');
+        if (!nav) return;
+        var h = nav.getBoundingClientRect().height || 64;
+        document.documentElement.style.setProperty('--topnav-height', h + 'px');
+      } catch(e) {}
+    })();
+
+    (function(){
+      const toggle = document.getElementById('navToggle');
+      const links = document.getElementById('navLinks');
+      if (!toggle || !links) return;
+
+      toggle.addEventListener('click', function(){
+        const isOpen = links.classList.toggle('is-open');
+        toggle.classList.toggle('is-active', isOpen);
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+
+      window.addEventListener('resize', function(){
+        if (window.innerWidth > 768) {
+          links.classList.remove('is-open');
+          toggle.classList.remove('is-active');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+  </script>
+</nav>
 
 <section class="app-section">
   <div class="section-inner">
@@ -756,41 +865,7 @@
         <div class="progress-header">
           <div class="progress-header-title">Uploading file</div>
           <div class="progress-header-subtitle">Your file is being secured and prepared.</div>
-        </head>
-        <body>
-
-        <nav class="topnav">
-          <div class="nav-inner">
-            <a href="{{ url_for('dashboard') }}" class="nav-logo">
-              <span class="nav-logo-text">FileFlow</span>
-              <span class="nav-logo-sub">by Acenet</span>
-            </a>
-
-            <div class="nav-links">
-              <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
-              <a href="{{ url_for('privacy') }}" class="nav-link">Privacy</a>
-              <a href="{{ url_for('support') }}" class="nav-link">Support</a>
-            </div>
-
-            <div class="nav-actions">
-              <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
-                <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="5"></circle>
-                </svg>
-                <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <script>
-            (function(){
-              try { var nav = document.querySelector('.topnav'); if (!nav) return; var h = nav.getBoundingClientRect().height||64; document.documentElement.style.setProperty('--topnav-height', h+'px'); } catch(e){}
-            })();
-          </script>
-        </nav>
-            <div class="file-upload-size">{{ file_size }}</div>
-          </div>
+          <div class="file-upload-size">{{ file_size }}</div>
         </div>
 
         <div class="progress-bar-wrap">

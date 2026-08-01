@@ -82,7 +82,39 @@
         .nav-actions {
             display: flex;
             align-items: center;
+            margin-left: auto;
         }
+        .nav-toggle {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.04);
+            color: #1D1D1F;
+            cursor: pointer;
+            padding: 0;
+            margin-right: 8px;
+        }
+        .nav-toggle span,
+        .nav-toggle span::before,
+        .nav-toggle span::after {
+            content: '';
+            display: block;
+            width: 18px;
+            height: 2px;
+            background: currentColor;
+            border-radius: 999px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .nav-toggle span { position: relative; }
+        .nav-toggle span::before { position: absolute; top: -6px; left: 0; }
+        .nav-toggle span::after { position: absolute; top: 6px; left: 0; }
+        .nav-toggle.is-active span { background: transparent; }
+        .nav-toggle.is-active span::before { transform: rotate(45deg); top: 0; }
+        .nav-toggle.is-active span::after { transform: rotate(-45deg); top: 0; }
         .theme-toggle {
             background: none;
             border: none;
@@ -313,8 +345,38 @@
 
         /* Responsive Layout Overrides */
         @media (max-width: 768px) {
-            .nav-links { display: none; }
+            .nav-inner {
+                padding: 16px 20px;
+                flex-wrap: wrap;
+                min-height: 64px;
+            }
+            .nav-toggle { display: inline-flex; }
+            .nav-actions { margin-left: auto; }
+            .nav-links {
+                display: none;
+                position: static;
+                transform: none;
+                width: 100%;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding-top: 12px;
+                margin-top: 2px;
+                border-top: 1px solid rgba(0,0,0,0.06);
+            }
+            .nav-links.is-open { display: flex; }
+            .hero-headline { margin-bottom: 20px; }
             .hero-title { font-size: 36px; }
+            .hero-sub { font-size: 15px; }
+            .app-section { padding: 24px 12px 24px; }
+            #panel-upload, #panel-progress, #panel-success { padding: 28px 20px; }
+            .sc-actions { flex-direction: column; }
+            .sc-action-btn { width: 100%; }
+            .sc-link-box { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; }
+            .sc-copy-btn { width: 100%; }
+            .files-toolbar { flex-direction: column; }
+            .search-wrap { width: 100%; }
+            .sort-select { width: 100%; }
             .dz-choose-btn { width: 100%; max-width: 240px; }
         }
     </style>
@@ -323,32 +385,62 @@
 
 <nav class="topnav">
     <div class="nav-inner">
-        <a href="#app" class="nav-logo">
+        <a href="{{ url_for('dashboard') }}" class="nav-logo">
             <span class="nav-logo-text">FileFlow</span>
             <span class="nav-logo-sub">by Acenet</span>
         </a>
 
-        <div class="nav-links">
-            <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
-            <a href="#" class="nav-link">Privacy</a>
-            <a href="#" class="nav-link">Support</a>
-        </div>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">
+            <span></span>
+        </button>
 
         <div class="nav-actions">
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
                 <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="5"></circle>
-                    <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                    <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                 </svg>
                 <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
             </button>
         </div>
+
+        <div class="nav-links" id="navLinks">
+            <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
+            <a href="{{ url_for('privacy') }}" class="nav-link">Privacy</a>
+            <a href="{{ url_for('support') }}" class="nav-link">Support</a>
+        </div>
     </div>
+    <script>
+                (function(){
+                    try {
+                        var nav = document.querySelector('.topnav');
+                        if (!nav) return;
+                        var h = nav.getBoundingClientRect().height || 64;
+                        document.documentElement.style.setProperty('--topnav-height', h + 'px');
+                    } catch(e) { }
+                })();
+
+                (function(){
+                    const toggle = document.getElementById('navToggle');
+                    const links = document.getElementById('navLinks');
+                    if (!toggle || !links) return;
+
+                    toggle.addEventListener('click', function(){
+                        const isOpen = links.classList.toggle('is-open');
+                        toggle.classList.toggle('is-active', isOpen);
+                        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    });
+
+                    window.addEventListener('resize', function(){
+                        if (window.innerWidth > 768) {
+                            links.classList.remove('is-open');
+                            toggle.classList.remove('is-active');
+                            toggle.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                })();
+    </script>
 </nav>
 
 {% set flash_data = namespace(success_messages=[], other_messages=[]) %}
