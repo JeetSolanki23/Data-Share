@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileFlow — How it works</title>
+    <title>FileFlow — Support</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; }
@@ -37,51 +37,32 @@
         .theme-toggle:active { transform: scale(0.9); }
 
         /* PAGE CONTENT */
-        .page-shell { max-width: 980px; margin: 0 auto; padding: 56px 32px 64px; flex: 1 0 auto; width: 100%; }
-
-        .hero { max-width: 640px; margin-bottom: 56px; }
+        .page-shell { max-width: 720px; margin: 0 auto; padding: 56px 32px 64px; flex: 1 0 auto; width: 100%; }
         .eyebrow {
             display: inline-flex; font-size: 12px; font-weight: 600; color: #86868B;
             letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 16px;
         }
         h1 {
-            font-size: clamp(36px, 5.5vw, 52px);
+            font-size: clamp(32px, 5vw, 44px);
             font-weight: 700;
-            line-height: 1.05;
             letter-spacing: -0.03em;
             color: #1D1D1F;
             margin-bottom: 16px;
         }
-        .lede { font-size: 17px; line-height: 1.55; color: #86868B; letter-spacing: -0.01em; font-weight: 400; max-width: 56ch; }
+        .lede { font-size: 16px; line-height: 1.6; color: #86868B; letter-spacing: -0.01em; margin-bottom: 40px; }
 
-        /* GRID & CARDS */
-        .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
-        .card {
-            grid-column: span 6;
+        .doc-card {
             background: #FFFFFF;
             border-radius: 20px;
-            padding: 28px;
             border: 0.5px solid rgba(0, 0, 0, 0.06);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
-            transition: background 0.3s ease, border-color 0.3s ease;
+            padding: 36px;
         }
-        .card h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: #1D1D1F; margin-bottom: 10px; }
-        .card p { font-size: 14px; line-height: 1.55; color: #86868B; }
-
-        .wide { grid-column: span 12; display: flex; gap: 28px; align-items: flex-start; }
-        .step { flex: 1; min-width: 0; position: relative; }
-        .step:not(:last-child)::after {
-            content: ''; position: absolute; top: 15px; right: -22px; width: 14px; height: 1px;
-            background: rgba(0, 0, 0, 0.1);
-        }
-        .step-num {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 30px; height: 30px; border-radius: 8px; background: #F5F5F7; color: #1D1D1F;
-            font-size: 13px; font-weight: 600; margin-bottom: 18px;
-            border: 0.5px solid rgba(0, 0, 0, 0.05);
-        }
-        .step h3 { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: #1D1D1F; margin-bottom: 6px; }
-        .step p { font-size: 13.5px; line-height: 1.55; color: #86868B; }
+        .doc-card h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; color: #1D1D1F; margin-bottom: 8px; }
+        .doc-card h2:not(:first-child) { margin-top: 28px; }
+        .doc-card p { font-size: 14.5px; line-height: 1.65; color: #86868B; }
+        .doc-card a { color: #007AFF; text-decoration: none; font-weight: 500; }
+        .doc-card a:hover { text-decoration: underline; }
 
         /* FOOTER — matches dashboard */
         .site-footer { background: transparent; padding: 24px 32px 32px; margin-top: auto; border-top: 1.5px solid rgba(0,0,0,0.05); flex-shrink: 0; text-align: center; }
@@ -93,24 +74,22 @@
         html.dark-mode .nav-inner { border-bottom-color: rgba(255,255,255,0.08); }
         html.dark-mode .nav-logo-text { color: #FFFFFF; }
         html.dark-mode .nav-link:hover, html.dark-mode .theme-toggle:hover { color: #FFFFFF; }
-        html.dark-mode h1, html.dark-mode .card h2, html.dark-mode .step h3 { color: #FFFFFF; }
-        html.dark-mode .card {
+        html.dark-mode h1, html.dark-mode .doc-card h2 { color: #FFFFFF; }
+        html.dark-mode .doc-card {
             background: #1C1C1E; border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
         }
-        html.dark-mode .step-num { background: #2C2C2E; color: #FFFFFF; border-color: rgba(255, 255, 255, 0.1); }
-        html.dark-mode .step:not(:last-child)::after { background: rgba(255, 255, 255, 0.1); }
+        html.dark-mode .doc-card a { color: #0A84FF; }
         html.dark-mode .site-footer { border-top-color: rgba(255,255,255,0.08); }
         html.dark-mode .footer-logo { color: #FFFFFF; }
 
         @media (max-width: 768px) {
             .nav-links { display: none; }
             .page-shell { padding: 40px 24px 48px; }
-            .card { grid-column: span 12; }
-            .wide { flex-direction: column; gap: 32px; }
-            .step:not(:last-child)::after { display: none; }
+            .doc-card { padding: 28px 24px; }
         }
     </style>
+
 </head>
 <body>
 
@@ -131,10 +110,6 @@
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
                 <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="5"></circle>
-                    <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                    <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                 </svg>
                 <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -155,40 +130,16 @@
 </nav>
 
 <div class="page-shell">
-    <section class="hero">
-        <div class="eyebrow">How it works</div>
-        <h1>Share files without extra steps.</h1>
-        <p class="lede">Upload a file, get a link, and let the other person download it directly. No accounts, no folders to dig through — just the file you shared.</p>
-    </section>
+    <div class="eyebrow">Support</div>
+    <h1>Need a hand?</h1>
+    <p class="lede">Questions about uploads, links, or anything else — here's how to reach us.</p>
 
-    <div class="grid">
-        <article class="card">
-            <h2>Pick a file, get a link</h2>
-            <p>Drop a file onto the dashboard or choose it from your device. FileFlow uploads it and hands you a link right away — ready to send.</p>
-        </article>
+    <div class="doc-card">
+        <h2>Contact us</h2>
+        <p>Email us at <a href="mailto:support@fileflow.example">support@fileflow.example</a> and we'll get back to you as soon as we can.</p>
 
-        <article class="card">
-            <h2>Nothing to configure</h2>
-            <p>There's no setup, no permissions to manage. Every link works the same way: whoever opens it can download the file, and that's it.</p>
-        </article>
-
-        <article class="card wide">
-            <div class="step">
-                <div class="step-num">01</div>
-                <h3>Upload</h3>
-                <p>Choose a file from the dashboard. It uploads straight away — no extra confirmation screens.</p>
-            </div>
-            <div class="step">
-                <div class="step-num">02</div>
-                <h3>Share</h3>
-                <p>FileFlow generates a private share link. Copy it, send it by mail, or show a QR code.</p>
-            </div>
-            <div class="step">
-                <div class="step-num">03</div>
-                <h3>Download</h3>
-                <p>The recipient opens the link and downloads the file directly — no sign-in required.</p>
-            </div>
-        </article>
+        <h2>Documentation</h2>
+        <p>Check out <a href="{{ url_for('how_it_works') }}">How it works</a> for a walkthrough of uploading, sharing, and downloading files.</p>
     </div>
 </div>
 

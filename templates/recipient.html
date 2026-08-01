@@ -24,44 +24,81 @@
       flex-direction: column;
     }
 
-    /* NAV */
+    /* NAV — matches home page exactly */
     .topnav {
-      position: sticky;
-      top: 0;
+      position: relative;
       z-index: 100;
-      background: rgba(242, 242, 247, 0.6);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 0.5px solid rgba(0,0,0,0.05);
-      height: 56px;
+      background: transparent;
+      height: 64px;
+      flex-shrink: 0;
     }
     .nav-inner {
-      max-width: 1080px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 32px;
       height: 100%;
+      border-bottom: 1.5px solid rgba(0,0,0,0.05);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      position: relative;
     }
     .nav-logo {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 6px;
       text-decoration: none;
-      color: #1C1C1E;
+      color: #1D1D1F;
     }
     .nav-logo-text {
       font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
-      color: #1C1C1E;
+      font-weight: 700;
+      letter-spacing: -0.01em;
     }
     .nav-logo-sub {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 400;
-      color: #636366;
-      letter-spacing: -0.2px;
+      color: #86868B;
+    }
+    .nav-links {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    .nav-link {
+      font-size: 13px;
+      color: #86868B;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: #1D1D1F; }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+    }
+    .theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #86868B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+    .theme-toggle:hover { color: #1D1D1F; }
+    .theme-toggle:active { transform: scale(0.9); }
+    html.dark-mode .nav-logo-text { color: #FFFFFF; }
+    html.dark-mode .nav-link:hover,
+    html.dark-mode .theme-toggle:hover { color: #FFFFFF; }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
     }
 
     /* MAIN CONTENT */
@@ -82,20 +119,20 @@
       align-items: stretch;
     }
 
-    /* CARD */
+    /* CARD — matches home page app-shell styling */
     .app-shell {
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 20px;
-      border: 1px solid rgba(199, 199, 204, 0.8);
+      background: #FFFFFF;
+      border-radius: 24px;
+      border: 0.5px solid rgba(0, 0, 0, 0.04);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.05);
       overflow: hidden;
-      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
-      backdrop-filter: blur(16px);
-      padding: 28px;
+      padding: 24px;
       position: relative;
       display: flex;
       gap: 24px;
       align-items: stretch;
       width: 100%;
+      max-height: calc(100vh - 160px);
     }
 
     .card-header {
@@ -139,37 +176,12 @@
       letter-spacing: -0.2px;
     }
 
-    /* STATUS PILL */
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #F0FFF4;
-      color: #34C759;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
-      border: 0.5px solid rgba(52, 199, 89, 0.2);
-      position: absolute;
-      top: 40px;
-      right: 34px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #34C759;
-    }
-
     /* FILE ROW */
     .file-row {
       display: flex;
       align-items: center;
       gap: 16px;
-      margin-bottom: 12px;
+      margin-bottom: 20px;
     }
 
     .icon-box {
@@ -259,10 +271,14 @@
       font-size: 12px;
       color: #007AFF;
       font-family: 'DM Mono', monospace;
-      word-break: break-all;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
       line-height: 1.5;
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
+      max-width: 100%;
+      display: block;
     }
 
     .link-box:hover {
@@ -270,21 +286,13 @@
       border-color: rgba(0, 0, 0, 0.1);
     }
 
-    /* STATUS MESSAGE */
-    .status {
-      font-size: 14px;
-      color: #8E8E93;
-      margin-bottom: 24px;
-      line-height: 1.6;
-      letter-spacing: -0.2px;
-    }
-
     /* ACTIONS */
     .actions {
       display: flex;
-      gap: 12px;
-      flex-direction: row;
+      gap: 10px;
+      flex-wrap: wrap;
       align-items: center;
+      margin-top: auto;
     }
 
     .btn-primary {
@@ -306,9 +314,9 @@
       box-shadow: 0 10px 22px rgba(0, 122, 255, 0.18);
       transition: background 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
     }
-    .btn-primary:hover { 
-      background: #0071EB; 
-      transform: translateY(-1px); 
+    .btn-primary:hover {
+      background: #0071EB;
+      transform: translateY(-1px);
       box-shadow: 0 12px 24px rgba(0, 122, 255, 0.22);
     }
 
@@ -337,17 +345,17 @@
       background: #fff;
     }
 
-    /* PREVIEW */
+    /* TWO-COLUMN LAYOUT */
     .preview-pane {
       flex: 1 1 60%;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #FBFBFD;
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 12px;
-      min-height: 60vh;
-      max-height: calc(100vh - 200px);
+      min-height: 400px;
+      min-width: 0;
       overflow: auto;
     }
     .meta-pane {
@@ -355,12 +363,26 @@
       flex: 0 0 360px;
       display: flex;
       flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
     }
     .preview-pane img, .preview-pane video, .preview-pane iframe {
       max-width: 100%;
-      max-height: calc(100vh - 260px);
+      max-height: 100%;
       border-radius: 8px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    }
+    .preview-pane iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      box-shadow: none;
+    }
+    .preview-placeholder {
+      text-align: center;
+      color: #8E8E93;
+      font-size: 14px;
     }
 
     /* FOOTER */
@@ -394,77 +416,198 @@
       letter-spacing: -0.01em;
     }
 
-    /* DARK MODE */
-    html.dark-mode body {
-      background: #1C1C1E;
-      color: #F2F2F7;
+    /* QR MODAL */
+    .qr-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
     }
-    html.dark-mode .topnav { 
-      background: rgba(28,28,30,0.88); 
-      border-bottom-color: rgba(255,255,255,0.08); 
+    .qr-overlay.show { opacity: 1; pointer-events: auto; }
+
+    .qr-modal {
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 0.5px solid rgba(0,0,0,0.06);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+      padding: 32px;
+      width: min(360px, calc(100vw - 48px));
+      text-align: center;
+      transform: scale(0.92) translateY(8px);
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    html.dark-mode .nav-logo-text { color: #F2F2F7; }
-    html.dark-mode .nav-logo-sub { color: #8E8E93; }
-    html.dark-mode .nav-link { color: #8E8E93; }
-    html.dark-mode .nav-link:hover { color: #F2F2F7; }
-    html.dark-mode .app-shell { 
-      background: #2C2C2E; 
-      border-color: #48484A; 
+    .qr-overlay.show .qr-modal { transform: scale(1) translateY(0); }
+
+    .qr-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1D1D1F;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
     }
-    html.dark-mode .card-title { color: #F2F2F7; }
-    html.dark-mode .file-name { color: #F2F2F7; }
-    html.dark-mode .icon-box { background: #3A3A3C; }
-    html.dark-mode .file-meta-grid { 
-      border-top-color: #3A3A3C; 
-      border-bottom-color: #3A3A3C; 
+    .qr-modal-sub {
+      font-size: 13px;
+      color: #86868B;
+      margin-bottom: 20px;
     }
-    html.dark-mode .file-row { border-bottom-color: #3A3A3C; }
-    html.dark-mode .link-box {
-      background: #3A3A3C;
+    .qr-code-frame {
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      width: 232px;
+      height: 232px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.04);
+    }
+    .qr-code-frame img {
+      width: 200px;
+      height: 200px;
+      display: block;
+      border-radius: 6px;
+    }
+    .qr-code-frame.loading {
+      color: #C7C7CC;
+      font-size: 13px;
+    }
+    .qr-modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .qr-modal-actions .btn-secondary,
+    .qr-modal-actions .btn-primary {
+      flex: 1;
+      padding: 10px 16px;
+      font-size: 14px;
+    }
+    .qr-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.05);
+      color: #86868B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .qr-close:hover { background: rgba(0,0,0,0.1); color: #1D1D1F; }
+    .qr-modal { position: relative; }
+
+    html.dark-mode .qr-modal {
+      background: rgba(28,28,30,0.96);
       border-color: rgba(255,255,255,0.08);
     }
+    html.dark-mode .qr-modal-title { color: #F2F2F7; }
+    html.dark-mode .qr-code-frame { background: #FFFFFF; }
+    html.dark-mode .qr-close { background: rgba(255,255,255,0.08); color: #8E8E93; }
+    html.dark-mode .qr-close:hover { background: rgba(255,255,255,0.14); color: #F2F2F7; }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1D1D1F;
+      color: #fff;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 9999;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* DARK MODE — matches home page's true-black theme */
+    html.dark-mode body {
+      background: #000000;
+      color: #F5F5F7;
+    }
+    html.dark-mode .topnav {
+      background: transparent;
+      border-color: transparent;
+    }
+    html.dark-mode .nav-inner { border-bottom-color: rgba(255,255,255,0.08); }
+    html.dark-mode .nav-logo-sub { color: #86868B; }
+    html.dark-mode .app-shell {
+      background: #1C1C1E;
+      border-color: rgba(255,255,255,0.1);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+    }
+    html.dark-mode .card-title { color: #FFFFFF; }
+    html.dark-mode .card-subtitle { color: #86868B; }
+    html.dark-mode .file-name { color: #FFFFFF; }
+    html.dark-mode .file-size { color: #86868B; }
+    html.dark-mode .icon-box { background: #2C2C2E; }
+    html.dark-mode .preview-pane { background: #131313; }
+    html.dark-mode .meta-label { color: #6E6E73; }
+    html.dark-mode .meta-value { color: #F5F5F7; }
+    html.dark-mode .file-meta-grid {
+      border-top-color: rgba(255,255,255,0.08);
+      border-bottom-color: rgba(255,255,255,0.08);
+    }
+    html.dark-mode .link-label { color: #6E6E73; }
+    html.dark-mode .link-box {
+      background: #2C2C2E;
+      border-color: rgba(255,255,255,0.08);
+      color: #0A84FF;
+    }
     html.dark-mode .link-box:hover {
-      background: #48484A;
+      background: #3A3A3C;
       border-color: rgba(255,255,255,0.12);
     }
-    html.dark-mode .btn-secondary { 
-      border-color: #48484A; 
-      color: #8E8E93; 
+    html.dark-mode .btn-secondary {
+      border-color: rgba(255,255,255,0.15);
+      color: #F5F5F7;
+      background: #1C1C1E;
+    }
+    html.dark-mode .btn-secondary:hover {
+      background: #2C2C2E;
+      border-color: rgba(255,255,255,0.2);
+    }
+    html.dark-mode .site-footer {
       background: transparent;
+      border-top-color: rgba(255,255,255,0.08);
     }
-    html.dark-mode .btn-secondary:hover { 
-      background: #3A3A3C; 
-      color: #F2F2F7; 
-    }
-    html.dark-mode .site-footer { 
-      background: #1C1C1E; 
-      border-top-color: #3A3A3C; 
-    }
-    html.dark-mode .footer-logo { color: #F2F2F7; }
-    html.dark-mode .upload-icon-box { background: rgba(0, 122, 255, 0.15); }
-    html.dark-mode .file-upload-name { color: #F2F2F7; }
-    html.dark-mode .progress-bar-wrap { background: #3A3A3C; }
-    html.dark-mode .progress-percent { color: #F2F2F7; }
-    html.dark-mode .progress-header-subtitle { color: #8E8E93; }
-    html.dark-mode .progress-header-title { color: #F2F2F7; }
-
-    /* Mobile */
-    @media (max-width: 600px) {
-      .app-section { padding: 40px 20px 24px; }
-      .card-title { font-size: 24px; }
-      .app-shell { padding: 24px 20px; }
-      .status-pill { position: static; margin-bottom: 24px; }
-    }
+    html.dark-mode .footer-logo { color: #FFFFFF; }
+    html.dark-mode .footer-tagline { color: #86868B; }
+    html.dark-mode .upload-icon-box { background: rgba(10, 132, 255, 0.15); }
+    html.dark-mode .file-upload-name { color: #FFFFFF; }
+    html.dark-mode .file-upload-size { color: #86868B; }
+    html.dark-mode .progress-header-title { color: #FFFFFF; }
+    html.dark-mode .progress-header-subtitle { color: #86868B; }
+    html.dark-mode .progress-bar-wrap { background: #2C2C2E; }
+    html.dark-mode .progress-percent { color: #FFFFFF; }
+    html.dark-mode .progress-speed { color: #86868B; }
+    html.dark-mode .progress-status { color: #86868B; }
+    html.dark-mode .preview-placeholder { color: #6E6E73; }
 
     /* PROGRESS STATE */
     .progress-section {
       display: flex;
       flex-direction: column;
       gap: 20px;
-    }
-
-    .progress-header {
-      text-align: left;
+      width: 100%;
     }
 
     .progress-header-title {
@@ -498,9 +641,7 @@
       justify-content: center;
     }
 
-    .file-upload-info {
-      flex: 1;
-    }
+    .file-upload-info { flex: 1; }
 
     .file-upload-name {
       font-size: 16px;
@@ -575,18 +716,29 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
+    /* Mobile */
+    @media (max-width: 900px) {
+      .section-inner { flex-direction: column; }
+      .app-shell {
+        flex-direction: column;
+        max-height: none;
+      }
+      .meta-pane { width: 100%; flex: 1 1 auto; overflow: visible; }
+      .preview-pane { min-height: 280px; max-height: 380px; flex: none; }
+    }
+    @media (max-width: 600px) {
+      .app-section { padding: 40px 20px 24px; }
+      .card-title { font-size: 24px; }
+      .app-shell { padding: 24px 20px; }
+      .actions { flex-direction: column; align-items: stretch; }
+      .btn-primary, .btn-secondary { width: 100%; }
+    }
   </style>
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="nav-inner">
-    <a href="{{ url_for('dashboard') }}" class="nav-logo">
-      <span class="nav-logo-text">FileFlow</span>
-      <span class="nav-logo-sub">by Acenet</span>
-    </a>
-  </div>
-</nav>
+{% include 'nav.html' %}
 
 <section class="app-section">
   <div class="section-inner">
@@ -595,8 +747,8 @@
       {% set file_size = file.size if file else 'Unknown size' %}
       {% set file_extension = file_name.rsplit('.', 1)[-1].upper() if '.' in file_name else 'FILE' %}
       {% set download_url = file.download_url if file else '#' %}
-      {% set share_url = file.share_url if file else '#' %}
-      {% set expires_days = file.expires_in_days if file else 7 %}
+      {% set share_url = file.share_url if file and file.share_url else (request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '#') %}
+      {% set expires_days = file.expires_in_days if (file and file.expires_in_days) else 7 %}
 
       <!-- Upload Progress State -->
       {% if file and file.is_processing %}
@@ -604,18 +756,39 @@
         <div class="progress-header">
           <div class="progress-header-title">Uploading file</div>
           <div class="progress-header-subtitle">Your file is being secured and prepared.</div>
-        </div>
+        </head>
+        <body>
 
-        <div class="file-upload-row">
-          <div class="upload-icon-box">
-            <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 3C2 1.34 3.34 0 5 0H14L22 8V25C22 26.66 20.66 28 19 28H5C3.34 28 2 26.66 2 25V3Z"
-                    stroke="#007AFF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M14 0V8H22" stroke="#007AFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+        <nav class="topnav">
+          <div class="nav-inner">
+            <a href="{{ url_for('dashboard') }}" class="nav-logo">
+              <span class="nav-logo-text">FileFlow</span>
+              <span class="nav-logo-sub">by Acenet</span>
+            </a>
+
+            <div class="nav-links">
+              <a href="{{ url_for('how_it_works') }}" class="nav-link">How it works</a>
+              <a href="{{ url_for('privacy') }}" class="nav-link">Privacy</a>
+              <a href="{{ url_for('support') }}" class="nav-link">Support</a>
+            </div>
+
+            <div class="nav-actions">
+              <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle theme">
+                <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="5"></circle>
+                </svg>
+                <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div class="file-upload-info">
-            <div class="file-upload-name">{{ file_name }}</div>
+          <script>
+            (function(){
+              try { var nav = document.querySelector('.topnav'); if (!nav) return; var h = nav.getBoundingClientRect().height||64; document.documentElement.style.setProperty('--topnav-height', h+'px'); } catch(e){}
+            })();
+          </script>
+        </nav>
             <div class="file-upload-size">{{ file_size }}</div>
           </div>
         </div>
@@ -637,31 +810,9 @@
 
       <!-- Download Ready State -->
       {% else %}
-      <div class="card-header meta-pane">
-        <div class="success-badge">
-          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </div>
-        <div class="card-title">Your link is ready</div>
-        <div class="card-subtitle">Anyone with this link can download the file.</div>
-      </div>
 
-      <div class="file-row">
-        <div class="icon-box" aria-hidden="true">
-          <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 3C2 1.34 3.34 0 5 0H14L22 8V25C22 26.66 20.66 28 19 28H5C3.34 28 2 26.66 2 25V3Z"
-                  stroke="#007AFF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M14 0V8H22" stroke="#007AFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div>
-          <div class="file-name">{{ file_name }}</div>
-          <div class="file-size">{{ file_size }}</div>
-        </div>
-        </div>
-
-        <div class="preview-pane" id="previewPane">
+      <!-- Left: preview -->
+      <div class="preview-pane" id="previewPane">
         {% if file and file.preview_url %}
           {% if file_extension in ['JPG','JPEG','PNG','GIF','WEBP','SVG'] %}
             <img src="{{ file.preview_url }}" alt="{{ file_name }}">
@@ -670,38 +821,65 @@
           {% elif file_extension in ['PDF'] %}
             <iframe src="{{ file.preview_url }}" frameborder="0"></iframe>
           {% else %}
-            <div style="text-align:center;color:#8E8E93">No inline preview available.</div>
+            <div class="preview-placeholder">No inline preview available.</div>
           {% endif %}
         {% else %}
-          <div style="text-align:center;color:#8E8E93">Preview not available.</div>
+          <div class="preview-placeholder">Preview not available.</div>
         {% endif %}
-        </div>
-
-        <div class="file-meta-grid meta-pane">
-        <div class="meta-card">
-          <span class="meta-label">Type</span>
-          <div class="meta-value">{{ file_extension }}</div>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Size</span>
-          <div class="meta-value">{{ file_size }}</div>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Expires in</span>
-          <div class="meta-value">{{ expires_days }} days</div>
-        </div>
       </div>
 
-      <div class="link-section">
-        <div class="link-label">Share Link</div>
-        <div id="linkBox" class="link-box copy-btn" data-copy-url="{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '#' }}" title="Click to copy">{{ request.host_url.rstrip('/') ~ url_for('recipient_file', identifier=file.share_token or file.name) if file else '' }}</div>
-      </div>
+      <!-- Right: info sidebar -->
+      <div class="meta-pane">
+        <div class="card-header">
+          <div class="success-badge">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div class="card-title">Your link is ready</div>
+          <div class="card-subtitle">Anyone with this link can download the file.</div>
+        </div>
 
-      <div class="actions">
-        <a id="downloadBtn" class="btn-primary" href="{{ download_url }}">Download</a>
-        <button id="qrBtn" class="btn-secondary" type="button">QR Code</button>
-        <button id="shareBtn" class="btn-secondary" type="button">Share</button>
-        <button id="mailBtn" class="btn-secondary" type="button">Mail</button>
+        <div class="file-row">
+          <div class="icon-box" aria-hidden="true">
+            <svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 3C2 1.34 3.34 0 5 0H14L22 8V25C22 26.66 20.66 28 19 28H5C3.34 28 2 26.66 2 25V3Z"
+                    stroke="#007AFF" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 0V8H22" stroke="#007AFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="file-name">{{ file_name }}</div>
+            <div class="file-size">{{ file_size }}</div>
+          </div>
+        </div>
+
+        <div class="file-meta-grid">
+          <div class="meta-card">
+            <span class="meta-label">Type</span>
+            <div class="meta-value">{{ file_extension }}</div>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Size</span>
+            <div class="meta-value">{{ file_size }}</div>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Expires in</span>
+            <div class="meta-value">{{ expires_days }} days</div>
+          </div>
+        </div>
+
+        <div class="link-section">
+          <div class="link-label">Share Link</div>
+          <div id="linkBox" class="link-box copy-btn" data-copy-url="{{ share_url }}" title="Click to copy">{{ share_url }}</div>
+        </div>
+
+        <div class="actions">
+          <a id="downloadBtn" class="btn-primary" href="{{ download_url }}">Download</a>
+          <button id="qrBtn" class="btn-secondary" type="button">QR Code</button>
+          <button id="shareBtn" class="btn-secondary" type="button">Share</button>
+          <button id="mailBtn" class="btn-secondary" type="button">Mail</button>
+        </div>
       </div>
       {% endif %}
 
@@ -716,16 +894,40 @@
   </div>
 </footer>
 
+<div class="qr-overlay" id="qrOverlay">
+  <div class="qr-modal">
+    <button class="qr-close" id="qrClose" type="button" aria-label="Close">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l12 12M13 1L1 13"/></svg>
+    </button>
+    <div class="qr-modal-title">Scan to open</div>
+    <div class="qr-modal-sub">Point your camera at the code below</div>
+    <div class="qr-code-frame loading" id="qrFrame">Loading…</div>
+    <div class="qr-modal-actions">
+      <button class="btn-secondary" id="qrCopyBtn" type="button">Copy link</button>
+      <button class="btn-primary" id="qrDownloadBtn" type="button">Save image</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-// Theme Toggle
+// Theme Toggle — matches home page
 (function() {
+    const themeToggle = document.getElementById('themeToggle');
     const htmlElement = document.documentElement;
+    const sunIcon = themeToggle?.querySelector('.sun-icon');
+    const moonIcon = themeToggle?.querySelector('.moon-icon');
 
     function applyTheme(theme) {
         if (theme === 'dark') {
             htmlElement.classList.add('dark-mode');
+            if (sunIcon) sunIcon.style.display = 'none';
+            if (moonIcon) moonIcon.style.display = '';
         } else {
             htmlElement.classList.remove('dark-mode');
+            if (sunIcon) sunIcon.style.display = '';
+            if (moonIcon) moonIcon.style.display = 'none';
         }
     }
 
@@ -734,45 +936,111 @@
 
     applyTheme(currentTheme);
     if (!localStorage.getItem('theme')) localStorage.setItem('theme', currentTheme);
+
+    themeToggle?.addEventListener('click', () => {
+        const next = htmlElement.classList.contains('dark-mode') ? 'light' : 'dark';
+        localStorage.setItem('theme', next);
+        applyTheme(next);
+    });
 })();
 
-  // Copy and share handlers for recipient page
-  document.addEventListener('DOMContentLoaded', () => {
-    const linkBox = document.getElementById('linkBox');
-    const qrBtn = document.getElementById('qrBtn');
-    const shareBtn = document.getElementById('shareBtn');
-    const mailBtn = document.getElementById('mailBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
+// Toast helper
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 2200);
+}
 
-    function getUrl() {
-      return (linkBox && linkBox.dataset.copyUrl) ? linkBox.dataset.copyUrl : (downloadBtn ? downloadBtn.href : window.location.href);
-    }
+// Copy and share handlers for recipient page
+document.addEventListener('DOMContentLoaded', () => {
+  const linkBox = document.getElementById('linkBox');
+  const qrBtn = document.getElementById('qrBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const mailBtn = document.getElementById('mailBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
 
-    if (linkBox) {
-      linkBox.addEventListener('click', async () => {
-        const url = getUrl();
-        try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); }
-      });
-    }
+  function getUrl() {
+    return (linkBox && linkBox.dataset.copyUrl) ? linkBox.dataset.copyUrl : (downloadBtn ? downloadBtn.href : window.location.href);
+  }
 
-    if (qrBtn) qrBtn.addEventListener('click', () => {
+  if (linkBox) {
+    linkBox.addEventListener('click', async () => {
       const url = getUrl();
-      const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url);
-      const w = window.open('', '_blank', 'toolbar=0,location=0,menubar=0');
-      if (w) { w.document.write('<img src="'+qrSrc+'" alt="QR code">'); w.document.title = 'QR Code'; } else { window.open(qrSrc, '_blank'); }
+      try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); }
     });
+  }
 
-    if (shareBtn) shareBtn.addEventListener('click', async () => {
-      const url = getUrl();
-      if (navigator.share) { try { await navigator.share({ title: document.title, text: 'File shared with you', url }); } catch (e) {} }
-      else { try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); } }
-    });
+  // QR modal
+  const qrOverlay = document.getElementById('qrOverlay');
+  const qrFrame = document.getElementById('qrFrame');
+  const qrClose = document.getElementById('qrClose');
+  const qrCopyBtn = document.getElementById('qrCopyBtn');
+  const qrDownloadBtn = document.getElementById('qrDownloadBtn');
+  let qrImgSrc = null;
 
-    if (mailBtn) mailBtn.addEventListener('click', () => {
-      const url = getUrl();
-      window.location.href = 'mailto:?subject=' + encodeURIComponent('File shared with you') + '&body=' + encodeURIComponent(url);
-    });
+  function openQrModal() {
+    const url = getUrl();
+    qrImgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url);
+    qrFrame.className = 'qr-code-frame loading';
+    qrFrame.textContent = 'Loading…';
+    qrOverlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    const img = new Image();
+    img.onload = () => {
+      qrFrame.className = 'qr-code-frame';
+      qrFrame.innerHTML = '';
+      img.alt = 'QR code';
+      qrFrame.appendChild(img);
+    };
+    img.onerror = () => {
+      qrFrame.className = 'qr-code-frame';
+      qrFrame.textContent = 'Could not load QR code.';
+    };
+    img.src = qrImgSrc;
+  }
+
+  function closeQrModal() {
+    qrOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  if (qrBtn) qrBtn.addEventListener('click', openQrModal);
+  if (qrClose) qrClose.addEventListener('click', closeQrModal);
+  if (qrOverlay) qrOverlay.addEventListener('click', (e) => { if (e.target === qrOverlay) closeQrModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && qrOverlay.classList.contains('show')) closeQrModal(); });
+
+  if (qrCopyBtn) qrCopyBtn.addEventListener('click', async () => {
+    const url = getUrl();
+    try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) {}
   });
+
+  if (qrDownloadBtn) qrDownloadBtn.addEventListener('click', () => {
+    if (!qrImgSrc) return;
+    const a = document.createElement('a');
+    a.href = qrImgSrc;
+    a.download = 'fileflow-qr.png';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  if (shareBtn) shareBtn.addEventListener('click', async () => {
+    const url = getUrl();
+    if (navigator.share) { try { await navigator.share({ title: document.title, text: 'File shared with you', url }); } catch (e) {} }
+    else { try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (e) { window.open(url, '_blank'); } }
+  });
+
+  if (mailBtn) mailBtn.addEventListener('click', () => {
+    const url = getUrl();
+    window.location.href = 'mailto:?subject=' + encodeURIComponent('File shared with you') + '&body=' + encodeURIComponent(url);
+  });
+});
 </script>
 
 </body>
